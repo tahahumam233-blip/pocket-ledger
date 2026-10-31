@@ -1,70 +1,47 @@
-import { Ionicons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
-import type { ColorValue } from 'react-native';
+import { type Href, useRouter } from 'expo-router';
+import { Tabs } from 'expo-router/js-tabs';
+import { useEffect, useRef } from 'react';
 
-import { typography } from '@/design/typography';
-import { useAppTheme } from '@/hooks/use-app-theme';
+import { AppTabBar } from '@/components/app-tab-bar';
+import { useTheme } from '@/design';
+import { clearLastNotification, useLastNotificationRoute } from '@/platform/notifications';
 
-type TabIconProps = {
-  color: ColorValue;
-  focused: boolean;
-  size: number;
-  active: keyof typeof Ionicons.glyphMap;
-  inactive: keyof typeof Ionicons.glyphMap;
-};
+export const unstable_settings = { anchor: 'index' };
 
-function TabIcon({ color, focused, size, active, inactive }: TabIconProps) {
-  return <Ionicons name={focused ? active : inactive} color={color} size={size} />;
+/** Opens the screen a tapped reminder points to, once the tabs are mounted. */
+function NotificationTapHandler() {
+  const router = useRouter();
+  const route = useLastNotificationRoute();
+  const handled = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!route || handled.current === route) return;
+    handled.current = route;
+    clearLastNotification();
+    const timer = setTimeout(() => router.push(route as Href), 250);
+    return () => clearTimeout(timer);
+  }, [route, router]);
+
+  return null;
 }
 
-export default function MainTabsLayout() {
-  const theme = useAppTheme();
-
+export default function TabsLayout() {
+  const theme = useTheme();
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: theme.colors.tabInactive,
-        tabBarStyle: {
-          backgroundColor: theme.colors.surface,
-          borderTopColor: theme.colors.border,
-        },
-        tabBarLabelStyle: typography.caption,
-      }}
-    >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Dashboard',
-          tabBarIcon: (props) => <TabIcon {...props} active="home" inactive="home-outline" />,
+    <>
+      <NotificationTapHandler />
+      <Tabs
+        tabBar={(props) => <AppTabBar {...props} />}
+        screenOptions={{
+          headerShown: false,
+          sceneStyle: { backgroundColor: theme.colors.background },
         }}
-      />
-      <Tabs.Screen
-        name="activity"
-        options={{
-          title: 'Activity',
-          tabBarIcon: (props) => <TabIcon {...props} active="list" inactive="list-outline" />,
-        }}
-      />
-      <Tabs.Screen
-        name="reports"
-        options={{
-          title: 'Reports',
-          tabBarIcon: (props) => (
-            <TabIcon {...props} active="bar-chart" inactive="bar-chart-outline" />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: 'Settings',
-          tabBarIcon: (props) => (
-            <TabIcon {...props} active="settings" inactive="settings-outline" />
-          ),
-        }}
-      />
-    </Tabs>
+      >
+        <Tabs.Screen name="index" options={{ title: 'Home' }} />
+        <Tabs.Screen name="activity" options={{ title: 'Activity' }} />
+        <Tabs.Screen name="receipts" options={{ title: 'Receipts' }} />
+        <Tabs.Screen name="reports" options={{ title: 'Reports' }} />
+      </Tabs>
+    </>
   );
 }

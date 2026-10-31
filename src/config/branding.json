@@ -1,9 +1,0 @@
-{
-  "name": "Pocket Ledger",
-  "slug": "pocket-ledger",
-  "scheme": "pocketledger",
-  "colors": {
-    "primary": "#1D7044",
-    "splashBackground": "#E8F3EC"
-  }
-}

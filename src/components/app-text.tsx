@@ -1,30 +1,60 @@
-import { StyleSheet, Text, type TextProps } from 'react-native';
+import { Text, type TextProps } from 'react-native';
 
-import { typography, type TypographyVariant } from '@/design/typography';
-import { useAppTheme } from '@/hooks/use-app-theme';
+import { type TypographyVariant, useTheme } from '@/design';
 
-type AppTextProps = TextProps & {
+export type TextTone =
+  | 'text'
+  | 'muted'
+  | 'subtle'
+  | 'primary'
+  | 'income'
+  | 'expense'
+  | 'transfer'
+  | 'warning'
+  | 'danger'
+  | 'onPrimary'
+  | 'hero'
+  | 'heroMuted';
+
+export type AppTextProps = TextProps & {
   variant?: TypographyVariant;
-  color?: 'default' | 'muted' | 'primary' | 'negative' | 'positive';
+  tone?: TextTone;
+  color?: string;
+  align?: 'left' | 'center' | 'right';
 };
 
-export function AppText({ variant = 'body', color = 'default', style, ...props }: AppTextProps) {
-  const theme = useAppTheme();
-  const textColor = {
-    default: theme.colors.text,
+export function AppText({
+  variant = 'body',
+  tone = 'text',
+  color,
+  align,
+  style,
+  ...rest
+}: AppTextProps) {
+  const theme = useTheme();
+  const tones: Record<TextTone, string> = {
+    text: theme.colors.text,
     muted: theme.colors.textMuted,
+    subtle: theme.colors.textSubtle,
     primary: theme.colors.primary,
-    negative: theme.colors.negative,
-    positive: theme.colors.positive,
-  }[color];
-
+    income: theme.colors.income,
+    expense: theme.colors.expense,
+    transfer: theme.colors.transfer,
+    warning: theme.colors.warning,
+    danger: theme.colors.danger,
+    onPrimary: theme.colors.onPrimary,
+    hero: theme.colors.heroText,
+    heroMuted: theme.colors.heroTextMuted,
+  };
   return (
-    <Text {...props} style={[styles.base, typography[variant], { color: textColor }, style]} />
+    <Text
+      {...rest}
+      style={[
+        theme.typography[variant],
+        { color: color ?? tones[tone] },
+        align ? { textAlign: align } : null,
+        style,
+      ]}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  base: {
-    flexShrink: 1,
-  },
-});

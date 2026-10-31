@@ -1,0 +1,13 @@
+{
+  "name": "Pocket Ledger",
+  "slug": "pocket-ledger",
+  "scheme": "pocketledger",
+  "bundleIdentifier": "com.pocketledger.app",
+  "colors": {
+    "primary": "#1F4FD8",
+    "splashBackground": "#F4F6FB",
+    "splashBackgroundDark": "#0B1020"
+  },
+  "expoOwner": "",
+  "easProjectId": ""
+}

@@ -1,21 +1,23 @@
 # Changelog
 
-All notable project changes are recorded here. The format follows Keep a Changelog, and the project intends to use semantic versioning when releases begin.
+## 1.0.0 (unreleased)
 
-## [Unreleased]
+First complete version, rebuilt from scratch on Expo SDK 58.
 
 ### Added
 
-- Expo SDK 57, React Native, TypeScript, and Expo Router project foundation.
-- Dashboard, Activity, Reports, and Settings tab routes.
-- Honest Add Transaction placeholder route.
-- Centralized working name, application configuration, and design tokens.
-- System-aware light and dark themes.
-- Reusable screen, text, button, placeholder, and error-fallback components.
-- Strict TypeScript, ESLint, Prettier, Jest, React Native Testing Library, Expo Doctor, and npm quality scripts.
-- GitHub Actions locked-install quality workflow.
-- Phase 0 smoke test and complete initial project documentation.
+- Onboarding: two currencies (device currency pre-selected), Safe / Pocket / Bank accounts with opening balances, optional name, nightly reminder time.
+- Ledger: expenses, income, transfers and currency exchanges with a custom keypad, account and category pickers, date chips, notes and receipt photos; edit, soft delete with undo, restore with revalidation.
+- Receipts inbox: camera or library capture, "needs an amount" state, add the amount later, link and detach, notes, delete.
+- Home: per-currency totals, spent today and this month, account cards, quick actions, pending-receipt banner, recent entries.
+- Activity: month navigation, search, type and currency filters, day grouping with totals.
+- Reports: spent, received and net per currency with month-over-month change, spending by category ring chart, six-month trend.
+- Accounts: balances per currency, history, reconcile with an adjustment entry, add, edit, archive and restore.
+- Settings: currencies (locked once used), reminder, appearance, app lock (biometrics), categories, CSV export, privacy notes, erase all data.
+- Daily local reminder that mentions waiting receipts; tapping it opens the new-expense screen.
+- Light and dark themes with Inter typography; new app icon, adaptive icon, splash and notification icon.
+- Domain unit tests and SQLite-backed integration tests (55 tests), CI workflow, EAS build profiles.
 
-### Security
+### Removed
 
-- No backend, analytics, advertising, bank connection, credentials, or financial persistence is present in Phase 0.
+- The Phase 0 placeholder shell and its phase-based plan.

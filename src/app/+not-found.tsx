@@ -1,23 +1,19 @@
-import { router } from 'expo-router';
+import { useRouter } from 'expo-router';
 
-import { FeaturePlaceholder } from '@/components/feature-placeholder';
-import { PrimaryButton } from '@/components/primary-button';
-import { ScreenContainer } from '@/components/screen-container';
-import { APP_BRAND } from '@/config/branding';
+import { EmptyState } from '@/components/empty-state';
+import { Screen } from '@/components/screen';
 
 export default function NotFoundScreen() {
+  const router = useRouter();
   return (
-    <ScreenContainer
-      title="Page not found"
-      subtitle={`That destination is not part of ${APP_BRAND.name}.`}
-    >
-      <FeaturePlaceholder
-        icon="compass-outline"
-        title="Nothing is stored at this address"
-        message="Return to the dashboard to continue."
-        availability="No data was changed"
+    <Screen header={{ title: 'Not found', back: true }}>
+      <EmptyState
+        icon="compass"
+        title="This page does not exist"
+        message="The link you followed points somewhere the app does not know about."
+        actionLabel="Go home"
+        onAction={() => router.replace('/')}
       />
-      <PrimaryButton label="Go to dashboard" onPress={() => router.replace('/')} />
-    </ScreenContainer>
+    </Screen>
   );
 }

@@ -1,64 +1,42 @@
 # Manual test checklist
 
-Record device/OS, app version/commit, date, and result when executing a release-oriented pass. Phase-specific checks are cumulative as features land.
+Run on a real phone after changes to screens, storage or notifications.
 
-## Phase 0 — Foundation shell
+## Onboarding
 
-### Setup and startup
+- [ ] Fresh install shows the welcome screen; the primary currency matches the phone's region.
+- [ ] Choosing the same currency twice is blocked.
+- [ ] Opening balances in both currencies appear on Home after finishing.
+- [ ] Turning the reminder on prompts for notification permission.
 
-- [ ] From the repository root, run `npm ci` successfully.
-- [ ] Run `npm run start -- --clear` and confirm Metro reaches a ready state without an immediate runtime/bundle error.
-- [ ] Open on an Android emulator/device with `npm run android` or the Metro shortcut.
-- [ ] On macOS or a physical iOS workflow, open with `npm run ios` or the Metro shortcut.
-- [ ] Optionally open `npm run web` as a development-only shell check.
+## Recording
 
-### Navigation
+- [ ] Add an expense with the keypad in each currency; Home and the account card update.
+- [ ] Add income; the account balance rises and Reports shows it under Received.
+- [ ] Transfer between two accounts; totals per currency are unchanged.
+- [ ] Exchange USD to the second currency; both account balances change in their own currency and Reports is unaffected.
+- [ ] Edit an entry (amount, account, date); balances follow.
+- [ ] Delete an entry, then Undo from the toast; balances return.
 
-- [ ] App opens to Dashboard and displays Pocket Ledger branding.
-- [ ] Dashboard, Activity, Reports, and Settings tabs are visible and each opens its named screen.
-- [ ] Every tab has a visible Add Transaction button.
-- [ ] Add Transaction opens a modal/route that clearly says entry is unavailable until Phase 4.
-- [ ] Close returns to the originating main screen; Android hardware/software Back also behaves safely.
-- [ ] An invalid route shows Page not found and Go to dashboard recovers.
+## Receipts
 
-### Honesty and content
+- [ ] Snap a receipt from the Receipts tab; it appears under "Needs an amount" and the tab badge increments.
+- [ ] Add the amount from the receipt; it moves to "Recorded" and opens the transaction.
+- [ ] Attach a photo from inside the add form; it appears on the transaction detail.
+- [ ] Delete a receipt; the file disappears and the linked entry stays.
 
-- [ ] No sample wallet, amount, transaction, report, or persisted-data claim appears.
-- [ ] Dashboard says wallet setup is Phase 3.
-- [ ] Activity says real transaction entry is Phase 4.
-- [ ] Reports says reports arrive in Phase 7.
-- [ ] Settings identifies planned features without interactive controls that imply persistence.
+## Reminder
 
-### Theme and layout
+- [ ] Set the reminder a few minutes ahead and lock the phone; the notification arrives (Expo Go may be a few minutes late on Android).
+- [ ] Tap the notification; the app opens on the new-expense screen.
+- [ ] Turn the reminder off; no notification arrives.
 
-- [ ] Switch the device between light and dark mode; background, cards, text, tabs, status bar, and controls remain readable.
-- [ ] On a small phone, titles/body/buttons do not clip and content scrolls.
-- [ ] Increase system font size; primary content remains understandable and actions remain reachable.
-- [ ] Rotate the device; portrait orientation remains enforced by configuration.
+## Accounts and settings
 
-### Accessibility
-
-- [ ] With VoiceOver/TalkBack, each tab and button has an understandable name and role.
-- [ ] Decorative placeholder icons are not announced as unlabeled controls.
-- [ ] Focus order follows brand/title/subtitle/content/action.
-- [ ] Add Transaction and Close targets are comfortably tappable.
-- [ ] Meaning is conveyed by text, not color alone.
-
-### Recovery
-
-- [ ] During development, temporarily throw from a child route and confirm the generic Pocket Ledger error fallback appears without the raw message/stack.
-- [ ] Tap Try again after removing the injected throw and confirm the route recovers.
-- [ ] Remove the temporary throw and verify no test-only fault remains in Git diff.
-
-### Automated gates to record
-
-- [ ] `npm run format:check`
-- [ ] `npm run lint`
-- [ ] `npm run typecheck`
-- [ ] `npm run test`
-- [ ] `npm run check`
-- [ ] `npm run doctor`
-
-## Future critical flows
-
-Add detailed, executable sections in their owning phases for onboarding; wallet/category lifecycle; expense/income/transfer/fee/adjustment; edit/delete/undo/restore; credit-card purchase/payment; search/combined filters; reconciliation; reminder permission/scheduling; report currency grouping; CSV safety; backup round trip/failed restore; app lock lifecycle; reset; and release build regression.
+- [ ] Adjust a balance; an adjustment entry appears and the balance matches the counted amount.
+- [ ] Remove an account with history; it is archived and can be restored.
+- [ ] Replacing a currency with history is blocked; swapping primary and secondary works.
+- [ ] Dark mode follows the system and the manual setting.
+- [ ] App lock: enable, background the app, return; the lock screen appears and biometrics unlock it.
+- [ ] Export CSV; open it in a spreadsheet and check amounts and currencies.
+- [ ] Erase all data returns to onboarding.

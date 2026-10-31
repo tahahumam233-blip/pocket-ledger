@@ -1,21 +1,32 @@
 import type { ExpoConfig } from 'expo/config';
 
-import APP_BRAND from './src/config/branding.json';
+import brand from './src/config/brand.json';
+
+// Filled in by `eas init` (copy the values it prints into src/config/brand.json),
+// or provided through the environment on a build machine.
+const easProjectId = process.env.EAS_PROJECT_ID || brand.easProjectId;
+const expoOwner = process.env.EXPO_OWNER || brand.expoOwner;
 
 const config: ExpoConfig = {
-  name: APP_BRAND.name,
-  slug: APP_BRAND.slug,
-  version: '0.1.0',
+  name: brand.name,
+  slug: brand.slug,
+  ...(expoOwner ? { owner: expoOwner } : {}),
+  version: '1.0.0',
   orientation: 'portrait',
   icon: './assets/images/icon.png',
-  scheme: APP_BRAND.scheme,
+  scheme: brand.scheme,
   userInterfaceStyle: 'automatic',
   ios: {
-    icon: './assets/expo.icon',
+    bundleIdentifier: brand.bundleIdentifier,
+    supportsTablet: false,
+    infoPlist: {
+      ITSAppUsesNonExemptEncryption: false,
+    },
   },
   android: {
+    package: brand.bundleIdentifier,
     adaptiveIcon: {
-      backgroundColor: APP_BRAND.colors.splashBackground,
+      backgroundColor: brand.colors.splashBackground,
       foregroundImage: './assets/images/android-icon-foreground.png',
       backgroundImage: './assets/images/android-icon-background.png',
       monochromeImage: './assets/images/android-icon-monochrome.png',
@@ -28,19 +39,50 @@ const config: ExpoConfig = {
   },
   plugins: [
     'expo-router',
-    'expo-font',
     [
       'expo-splash-screen',
       {
-        backgroundColor: APP_BRAND.colors.splashBackground,
+        backgroundColor: brand.colors.splashBackground,
         image: './assets/images/splash-icon.png',
-        imageWidth: 76,
+        imageWidth: 120,
+        dark: {
+          backgroundColor: brand.colors.splashBackgroundDark,
+        },
+      },
+    ],
+    'expo-sqlite',
+    'expo-localization',
+    'expo-sharing',
+    '@react-native-community/datetimepicker',
+    [
+      'expo-notifications',
+      {
+        icon: './assets/images/notification-icon.png',
+        color: brand.colors.primary,
+        defaultChannel: 'reminders',
+      },
+    ],
+    [
+      'expo-image-picker',
+      {
+        photosPermission:
+          'Pocket Ledger uses your photo library so you can attach receipt and invoice photos to your spending.',
+        cameraPermission:
+          'Pocket Ledger uses the camera so you can snap receipts and invoices to record later.',
+        microphonePermission: false,
+      },
+    ],
+    [
+      'expo-local-authentication',
+      {
+        faceIDPermission: 'Pocket Ledger can use Face ID to lock your ledger from other people.',
       },
     ],
   ],
   experiments: {
     typedRoutes: true,
   },
+  ...(easProjectId ? { extra: { eas: { projectId: easProjectId } } } : {}),
 };
 
 export default config;

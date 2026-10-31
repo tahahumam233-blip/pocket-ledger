@@ -4,3 +4,6 @@ coverage/
 dist/
 package-lock.json
 assets/
+android/
+ios/
+expo-env.d.ts
