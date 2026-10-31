@@ -1,6 +1,6 @@
-import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useState } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { useTheme } from '@/design';
 import {
@@ -12,18 +12,16 @@ import {
   toIsoDate,
 } from '@/domain';
 
-import { AppText } from './app-text';
 import { BottomSheet } from './bottom-sheet';
 import { Button } from './button';
 import { Chip } from './chip';
-import { TextField } from './form-row';
 
 type DateFieldProps = {
   value: IsoDate;
   onChange: (next: IsoDate) => void;
 };
 
-/** Quick chips for the common cases plus a native calendar for anything else. */
+/** Quick chips for the common cases plus the iPhone calendar for anything else. */
 export function DateField({ value, onChange }: DateFieldProps) {
   const theme = useTheme();
   const today = todayIsoDate();
@@ -33,15 +31,6 @@ export function DateField({ value, onChange }: DateFieldProps) {
   const custom = value !== today && value !== yesterday;
 
   const openPicker = () => {
-    if (Platform.OS === 'android') {
-      DateTimePickerAndroid.open({
-        value: parseIsoDate(value),
-        mode: 'date',
-        maximumDate: parseIsoDate(addDays(today, 365)),
-        onValueChange: (_event, date) => onChange(toIsoDate(date)),
-      });
-      return;
-    }
     setDraft(value);
     setSheetOpen(true);
   };
@@ -62,27 +51,15 @@ export function DateField({ value, onChange }: DateFieldProps) {
         title="Choose a date"
         scroll={false}
       >
-        {Platform.OS === 'ios' ? (
-          <DateTimePicker
-            value={parseIsoDate(draft)}
-            mode="date"
-            display="inline"
-            themeVariant={theme.isDark ? 'dark' : 'light'}
-            accentColor={theme.colors.primary}
-            maximumDate={parseIsoDate(addDays(today, 365))}
-            onValueChange={(_event, date) => setDraft(toIsoDate(date))}
-          />
-        ) : (
-          <View style={styles.webPicker}>
-            <AppText tone="muted">Type a date as YYYY-MM-DD</AppText>
-            <TextField
-              value={draft}
-              onChangeText={setDraft}
-              placeholder="2026-01-31"
-              autoCapitalize="none"
-            />
-          </View>
-        )}
+        <DateTimePicker
+          value={parseIsoDate(draft)}
+          mode="date"
+          display="inline"
+          themeVariant={theme.isDark ? 'dark' : 'light'}
+          accentColor={theme.colors.primary}
+          maximumDate={parseIsoDate(addDays(today, 365))}
+          onValueChange={(_event, date) => setDraft(toIsoDate(date))}
+        />
         <Button
           label={`Use ${formatDateLabel(draft, today)}`}
           onPress={() => {
@@ -100,9 +77,6 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-  },
-  webPicker: {
     gap: 8,
   },
 });

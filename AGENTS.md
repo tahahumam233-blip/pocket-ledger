@@ -1,6 +1,6 @@
 # Pocket Ledger repository guide
 
-Pocket Ledger is an offline-first, two-currency spending tracker for iOS and Android built with Expo SDK 58, React Native and TypeScript. It records a local ledger only: it never moves money, connects to a bank or uploads data.
+Pocket Ledger is an offline-first, two-currency spending tracker for iPhone built with Expo SDK 58, React Native and TypeScript. It ships as an installable Home Screen web app, with an optional native iOS build. Android is not a target. It records a local ledger only: it never moves money, connects to a bank or uploads data.
 
 ## Before changing Expo or React Native code
 
@@ -45,7 +45,6 @@ After any domain or persistence change, add or update regression tests and verif
 npm install
 npm run start
 npm run start:tunnel
-npm run android
 npm run ios
 npm run web
 npm run build:web
@@ -58,11 +57,10 @@ npm run test
 npm run test:watch
 npm run doctor
 npm run check
-npm run build:android
 npm run build:ios
 ```
 
-`npm run check` is the gate: formatting, lint, strict TypeScript and tests. Run it before declaring work done. `npx expo export --platform android` confirms Metro bundles the app, and `WEB_BASE_URL=/pocket-ledger npm run build:web` builds the iPhone web app (files named `*.web.ts(x)` are its platform versions).
+`npm run check` is the gate: formatting, lint, strict TypeScript and tests. Run it before declaring work done. `npx expo export --platform ios` confirms Metro bundles the native app, and `WEB_BASE_URL=/pocket-ledger npm run build:web` builds the iPhone web app (files named `*.web.ts(x)` are its platform versions).
 
 ## Definition of done
 

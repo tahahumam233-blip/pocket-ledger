@@ -2,7 +2,7 @@
 
 ## Statement
 
-Pocket Ledger is a single-user, offline-first spending tracker for iOS and Android. It records money held in a few places (a safe at home, a pocket, bank accounts), in two currencies, and shows where the money went. It never connects to a bank, never moves money and never uploads data.
+Pocket Ledger is a single-user, offline-first spending tracker for iPhone, installed as a Home Screen web app (an optional native iOS build exists). It records money held in a few places (a safe at home, a pocket, bank accounts), in two currencies, and shows where the money went. It never connects to a bank, never moves money and never uploads data.
 
 ## Principles
 

@@ -49,10 +49,10 @@ Amounts are integers in minor units. Fraction digits per currency are defined in
 
 ## Storage locations
 
-| Platform          | Database                                                                                | Receipt photos                                  |
-| ----------------- | --------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| iOS / Android app | `pocket-ledger.db` via expo-sqlite (WAL)                                                | `Documents/receipts/<id>.<ext>`                 |
-| iPhone web app    | sql.js in memory, snapshot in IndexedDB `pocket-ledger` / `snapshots` / `ledger.sqlite` | Cache Storage `pocket-ledger-receipts-v1`, JPEG |
+| Platform         | Database                                                                                | Receipt photos                                  |
+| ---------------- | --------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| Native iOS build | `pocket-ledger.db` via expo-sqlite (WAL)                                                | `Documents/receipts/<id>.<ext>`                 |
+| iPhone web app   | sql.js in memory, snapshot in IndexedDB `pocket-ledger` / `snapshots` / `ledger.sqlite` | Cache Storage `pocket-ledger-receipts-v1`, JPEG |
 
 ## Backup file
 

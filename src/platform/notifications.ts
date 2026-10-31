@@ -1,16 +1,14 @@
 import * as Notifications from 'expo-notifications';
-import { AndroidImportance } from 'expo-notifications';
 import { Platform } from 'react-native';
 
 import type { ReminderPlan, ReminderScheduler } from '@/application/ports';
 
-export const REMINDER_CHANNEL_ID = 'reminders';
 export const REMINDER_TAP_ROUTE = '/transaction/new?kind=expense&source=reminder';
 
 const supported = Platform.OS !== 'web';
 let configured = false;
 
-/** Shows reminders even while the app is open and prepares the Android channel. */
+/** Shows reminders even while the app is open. */
 export async function configureNotifications(): Promise<void> {
   if (!supported || configured) return;
   configured = true;
@@ -22,14 +20,6 @@ export async function configureNotifications(): Promise<void> {
       shouldSetBadge: false,
     }),
   });
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync(REMINDER_CHANNEL_ID, {
-      name: 'Nightly reminders',
-      description: 'A gentle reminder each evening to record the day’s spending.',
-      importance: AndroidImportance.DEFAULT,
-      vibrationPattern: [0, 200],
-    });
-  }
 }
 
 export async function getNotificationPermissionStatus(): Promise<
@@ -66,7 +56,6 @@ export const expoReminderScheduler: ReminderScheduler = {
         type: Notifications.SchedulableTriggerInputTypes.DAILY,
         hour: plan.hour,
         minute: plan.minute,
-        channelId: REMINDER_CHANNEL_ID,
       },
     });
   },

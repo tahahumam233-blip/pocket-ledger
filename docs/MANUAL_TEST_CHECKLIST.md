@@ -27,7 +27,7 @@ Run on a real phone after changes to screens, storage or notifications.
 
 ## Reminder
 
-- [ ] Set the reminder a few minutes ahead and lock the phone; the notification arrives (Expo Go may be a few minutes late on Android).
+- [ ] Set the reminder a few minutes ahead and lock the phone; the notification arrives (native build).
 - [ ] Tap the notification; the app opens on the new-expense screen.
 - [ ] Turn the reminder off; no notification arrives.
 

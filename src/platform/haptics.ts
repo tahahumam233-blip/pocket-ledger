@@ -1,7 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import { Platform } from 'react-native';
 
-const enabled = Platform.OS === 'ios' || Platform.OS === 'android';
+const enabled = Platform.OS === 'ios';
 
 export const haptics = {
   tap() {

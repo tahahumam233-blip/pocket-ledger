@@ -14,7 +14,7 @@ export const DATABASE_NAME = 'pocket-ledger.db';
  */
 export async function openAppDatabase(): Promise<Repositories> {
   if (typeof indexedDB === 'undefined') {
-    throw new Error('This browser cannot store data offline. Open the app in Safari or Chrome.');
+    throw new Error('This browser cannot store data offline. Open the app in Safari.');
   }
   try {
     await navigator.storage?.persist?.();

@@ -13,6 +13,8 @@ const config: ExpoConfig = {
   slug: brand.slug,
   ...(expoOwner ? { owner: expoOwner } : {}),
   version: '1.0.0',
+  // iPhone only: the web app for the Home Screen, plus an optional native iOS build.
+  platforms: ['ios', 'web'],
   orientation: 'portrait',
   icon: './assets/images/icon.png',
   scheme: brand.scheme,
@@ -23,16 +25,6 @@ const config: ExpoConfig = {
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
     },
-  },
-  android: {
-    package: brand.bundleIdentifier,
-    adaptiveIcon: {
-      backgroundColor: brand.colors.splashBackground,
-      foregroundImage: './assets/images/android-icon-foreground.png',
-      backgroundImage: './assets/images/android-icon-background.png',
-      monochromeImage: './assets/images/android-icon-monochrome.png',
-    },
-    predictiveBackGestureEnabled: false,
   },
   web: {
     // A single-page app installs cleanly to the iPhone home screen and works offline.
@@ -63,9 +55,8 @@ const config: ExpoConfig = {
     [
       'expo-notifications',
       {
-        icon: './assets/images/notification-icon.png',
-        color: brand.colors.primary,
-        defaultChannel: 'reminders',
+        // Reminders are scheduled on the phone; no push service is used.
+        enableRemoteNotifications: false,
       },
     ],
     [

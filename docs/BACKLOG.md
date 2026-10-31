@@ -7,7 +7,7 @@ Not started; recorded so nothing is forgotten.
 - Exchange-rate helper for the exchange form (manual rate entry, remembered per day).
 - Multiple receipts per transaction in the capture flow from the inbox (currently one pending receipt plus attachments added inside the form).
 - Reorder accounts and categories by drag.
-- Widgets / quick actions from the home screen (iOS App Intents, Android shortcuts).
+- Widgets / quick actions from the Home Screen (native iOS build, App Intents).
 - Localization (Arabic, right-to-left layout) and number formatting per locale.
 - Encrypted database option (SQLCipher) for people who want protection beyond the OS lock.
 - Automated UI tests on device (Maestro) in addition to the web walkthrough.

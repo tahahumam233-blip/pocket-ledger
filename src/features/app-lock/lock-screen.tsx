@@ -33,7 +33,7 @@ export function LockScreen({ onUnlock, checking }: LockScreenProps) {
           {brand.name} is locked
         </AppText>
         <AppText tone="muted" align="center" style={styles.copy}>
-          Unlock with your face, fingerprint or device passcode to see your ledger.
+          Unlock with Face ID, Touch ID or your passcode to see your ledger.
         </AppText>
       </View>
       <Button

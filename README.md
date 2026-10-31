@@ -1,23 +1,21 @@
 # Pocket Ledger
 
-A private, offline spending tracker for iPhone and Android, built with Expo and React Native.
+A private, offline spending tracker for iPhone, built with Expo and React Native.
 
 - **Two currencies, never mixed.** Pick a primary and a secondary currency; every total is shown per currency.
 - **Safe, Pocket and Bank.** Three accounts out of the box (add more if you like), each holding both currencies.
 - **Snap receipts now, add the amount later.** Photos wait in an inbox until you record them.
-- **A nightly reminder** at the time you choose: a phone notification in the native app, a daily Calendar alert in the iPhone web app.
-- **Reports** by category and by month, transfers and exchanges between currencies, balance adjustments, CSV export, backup and restore with photos, dark mode, and an optional Face ID / fingerprint lock in the native app.
+- **A nightly reminder** at the time you choose, as a daily Calendar alert (or a notification in the optional native build).
+- **Reports** by category and by month, transfers and exchanges between currencies, balance adjustments, CSV export, backup and restore with photos, dark mode, and an optional Face ID lock in the native build.
 - **No account, no cloud, no ads.** Everything stays on the phone.
 
 ![App icon](assets/images/splash-icon.png)
 
 ## Get it on your phone
 
-**iPhone:** install the free web app on your Home Screen. It opens full screen like any app, works offline and needs no computer once published. Publish it once with GitHub Pages (the **Publish iPhone web app** workflow), open the address in Safari, then Share, Add to Home Screen:
+Install the free web app on your Home Screen. It opens full screen like any app, works offline and needs no computer once published. Publish it once with GitHub Pages (the **Publish iPhone web app** workflow), open the address in Safari, then Share, Add to Home Screen:
 
 `https://tahahumam233-blip.github.io/pocket-ledger/`
-
-**Android:** build an installable APK with EAS (`npm run build:android`), or add the same web app to the home screen from Chrome.
 
 Every step, including the one-time publishing setup and backups, is in [docs/GET_IT_ON_YOUR_PHONE.md](docs/GET_IT_ON_YOUR_PHONE.md).
 
@@ -39,7 +37,6 @@ Every step, including the one-time publishing setup and backups, is in [docs/GET
 ```sh
 npm install
 npm run start          # Expo dev server
-npm run android        # open on a connected Android device / emulator
 npm run ios            # open in the iOS Simulator (macOS)
 npm run web            # browser preview of the web app
 npm run build:web      # build the installable web app into dist/ (set WEB_BASE_URL for a sub-path)

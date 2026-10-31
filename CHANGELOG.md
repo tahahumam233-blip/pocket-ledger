@@ -29,4 +29,6 @@ First complete version, rebuilt from scratch on Expo SDK 58.
 
 ### Removed
 
+- Android: build profiles, adaptive and notification icons, scripts and code paths. The app targets iPhone only.
+
 - The Phase 0 placeholder shell and its phase-based plan.

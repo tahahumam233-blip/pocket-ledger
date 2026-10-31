@@ -2,6 +2,8 @@
 
 ## Stack
 
+Targets: the iPhone Home Screen web app (primary) and an optional native iOS build. Android is not supported (`platforms: ['ios', 'web']` in the app config).
+
 - Expo SDK 58, React Native 0.88, React 19.3, TypeScript (strict), Expo Router 58 with typed routes.
 - expo-sqlite for storage, expo-file-system for receipt images, expo-notifications for the nightly reminder, expo-image-picker for capture, expo-local-authentication for the app lock, react-native-svg for charts, zustand for shared UI state.
 - Jest (jest-expo preset) for tests. Repository and service tests run against Node's built-in SQLite (`node:sqlite`) through a small driver adapter, so the real schema and SQL are exercised without a device.
@@ -40,7 +42,7 @@ The same code base ships as an installable web app (a Progressive Web App) for i
 - **Database:** `src/data/open-database.web.ts` runs SQLite compiled to WebAssembly with sql.js. The database lives in memory and `createSqlJsDriver` saves a snapshot of the whole file to IndexedDB after every committed write; a write only resolves once its snapshot is stored. The same repositories and services run unchanged, and the full integration suite runs against both the sql.js driver and `node:sqlite`. No cross-origin isolation headers are needed, so any static host works.
 - **Receipt photos:** `src/platform/receipt-files.web.ts` shrinks pictures to at most 2000 px on a canvas, stores them as JPEG in Cache Storage, and hands out object URLs through `useReceiptUri`.
 - **Reminder:** web apps cannot schedule notifications without a server, so `scripts/prepare-web.js` publishes one calendar file per five minutes of the day (`public/reminders/pocket-ledger-HHMM.ics`, a daily repeating event with an alert). The reminder screens open the file for the chosen time and iPhone offers to add it to Calendar. `useReminderSync` does nothing on the web.
-- **Dialogs, pickers and sharing:** `askConfirm` uses native alerts on iOS/Android and an in-app dialog (`ConfirmHost`) on the web. Date and time fields hide native `<input type="date|time">` elements over the chips so iPhone shows its own wheels. Files are shared with the Web Share API (Save to Files, AirDrop) and fall back to a download.
+- **Dialogs, pickers and sharing:** `askConfirm` uses native alerts in the native iOS build and an in-app dialog (`ConfirmHost`) on the web. Date and time fields hide native `<input type="date|time">` elements over the chips so iPhone shows its own wheels. Files are shared with the Web Share API (Save to Files, AirDrop) and fall back to a download.
 - **Shell:** `web.output` is `single` (one page). `public/index.html` carries the Home Screen meta tags, and `scripts/build-pwa.js` fills in the base path, writes `manifest.webmanifest`, a `404.html` copy for deep links on GitHub Pages, and `sw.js`, a service worker that precaches every file so the app opens offline. Cache names carry a content hash so a new publish replaces the old version.
 - **Base path:** `WEB_BASE_URL` (for example `/pocket-ledger`) sets `experiments.baseUrl`; `process.env.EXPO_BASE_URL` is inlined into the bundle and read by `src/platform/web-base.ts`.
 - **Install guidance:** in Safari on iPhone the app first shows how to add it to the Home Screen, because the installed app and the Safari tab keep separate storage.

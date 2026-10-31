@@ -3,7 +3,6 @@
 | Phone              | Best option                            | Cost                              | Needs a computer?       |
 | ------------------ | -------------------------------------- | --------------------------------- | ----------------------- |
 | iPhone             | Install the web app on the Home Screen | Free                              | No                      |
-| Android            | Install the APK built by EAS           | Free tier                         | Only to start the build |
 | iPhone, native app | TestFlight or internal build           | Apple Developer Program, $99/year | Only to start the build |
 
 ## iPhone: the Home Screen web app (recommended)
@@ -44,25 +43,9 @@ Every publish updates the app automatically. The new version loads the next time
 - Face ID app lock is not available in the web app.
 - Receipt photos are shrunk to a sensible size (2000 pixels on the long side) when saved.
 
-## Android: install an APK built with EAS (free tier)
-
-EAS Build compiles the app in the cloud and gives you a download link.
-
-```sh
-git clone https://github.com/tahahumam233-blip/pocket-ledger
-cd pocket-ledger
-npm install
-npm install -g eas-cli
-eas login
-eas init
-npm run build:android
-```
-
-`eas init` prints a project ID and account name; because this project uses `app.config.ts`, paste them into `src/config/brand.json` as `easProjectId` and `expoOwner`. Say yes when asked to generate an Android keystore. When the build finishes, open the build page, tap **Install**, scan the QR code with the phone, download the APK and allow "Install unknown apps" for your browser. Android Chrome can also install the web app from the published address (menu, Add to Home screen).
-
 ## iPhone: native app (paid)
 
-With the Apple Developer Program you can build a native iPhone app that adds Face ID lock and real notifications:
+With the Apple Developer Program you can build a native iPhone app that adds Face ID lock and real notifications. First run `npm install -g eas-cli`, `eas login` and `eas init`; because this project uses `app.config.ts`, paste the printed project ID and account name into `src/config/brand.json` as `easProjectId` and `expoOwner`. Then:
 
 - **TestFlight:** `eas build --platform ios --profile production`, then `eas submit --platform ios`, add yourself as an internal tester in App Store Connect and install from the TestFlight app.
 - **Internal distribution:** register the phone with `eas device:create`, run `npm run build:ios` and install from the build page link. Enable Developer Mode when asked.

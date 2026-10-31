@@ -28,8 +28,8 @@ jobs:
       - name: Run quality gates
         run: npm run check
 
-      - name: Verify the Android bundle compiles
-        run: npx expo export --platform android --output-dir /tmp/export-android
+      - name: Verify the native iPhone bundle compiles
+        run: npx expo export --platform ios --output-dir /tmp/export-ios
         env:
           CI: 1
           EXPO_OFFLINE: 1

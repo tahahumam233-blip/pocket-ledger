@@ -18,7 +18,7 @@ type BottomSheetProps = PropsWithChildren<{
   maxHeight?: number;
 }>;
 
-/** A simple slide-up sheet that works identically on iOS, Android and web. */
+/** A simple slide-up sheet that works the same in the iPhone app and the web app. */
 export function BottomSheet({
   visible,
   onClose,

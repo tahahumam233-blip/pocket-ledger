@@ -1,6 +1,6 @@
-import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useState } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { useTheme } from '@/design';
 import { formatClockTime } from '@/domain';
@@ -8,7 +8,6 @@ import { formatClockTime } from '@/domain';
 import { AppText } from './app-text';
 import { BottomSheet } from './bottom-sheet';
 import { Button } from './button';
-import { TextField } from './form-row';
 import { Icon } from './icon';
 import { PressableScale } from './pressable-scale';
 
@@ -25,35 +24,15 @@ function toDate(hour: number, minute: number) {
   return date;
 }
 
-/** Picks a time of day with the native clock on each platform. */
+/** Picks a time of day with the iPhone time wheel. */
 export function TimeField({ hour, minute, onChange, label = 'Remind me at' }: TimeFieldProps) {
   const theme = useTheme();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(() => toDate(hour, minute));
-  const [text, setText] = useState(
-    `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`,
-  );
 
   const openPicker = () => {
-    if (Platform.OS === 'android') {
-      DateTimePickerAndroid.open({
-        value: toDate(hour, minute),
-        mode: 'time',
-        is24Hour: false,
-        onValueChange: (_event, date) => onChange(date.getHours(), date.getMinutes()),
-      });
-      return;
-    }
     setDraft(toDate(hour, minute));
     setOpen(true);
-  };
-
-  const applyText = () => {
-    const match = /^(\d{1,2}):(\d{2})$/.exec(text.trim());
-    if (!match) return;
-    const h = Number(match[1]);
-    const m = Number(match[2]);
-    if (h >= 0 && h <= 23 && m >= 0 && m <= 59) onChange(h, m);
   };
 
   return (
@@ -86,33 +65,20 @@ export function TimeField({ hour, minute, onChange, label = 'Remind me at' }: Ti
         title="Reminder time"
         scroll={false}
       >
-        {Platform.OS === 'ios' ? (
-          <View style={styles.center}>
-            <DateTimePicker
-              value={draft}
-              mode="time"
-              display="spinner"
-              minuteInterval={5}
-              themeVariant={theme.isDark ? 'dark' : 'light'}
-              onValueChange={(_event, date) => setDraft(date)}
-            />
-          </View>
-        ) : (
-          <View style={styles.webField}>
-            <AppText tone="muted">Enter a 24-hour time, for example 21:30</AppText>
-            <TextField
-              value={text}
-              onChangeText={setText}
-              placeholder="21:00"
-              keyboardType="numbers-and-punctuation"
-            />
-          </View>
-        )}
+        <View style={styles.center}>
+          <DateTimePicker
+            value={draft}
+            mode="time"
+            display="spinner"
+            minuteInterval={5}
+            themeVariant={theme.isDark ? 'dark' : 'light'}
+            onValueChange={(_event, date) => setDraft(date)}
+          />
+        </View>
         <Button
           label="Use this time"
           onPress={() => {
-            if (Platform.OS === 'ios') onChange(draft.getHours(), draft.getMinutes());
-            else applyText();
+            onChange(draft.getHours(), draft.getMinutes());
             setOpen(false);
           }}
           fullWidth
@@ -136,8 +102,5 @@ const styles = StyleSheet.create({
   },
   center: {
     alignItems: 'center',
-  },
-  webField: {
-    gap: 8,
   },
 });

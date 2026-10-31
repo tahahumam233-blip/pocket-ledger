@@ -169,7 +169,7 @@ export default function SettingsScreen() {
           {Platform.OS === 'web' ? null : lockAvailable ? (
             <ListRow
               title="App lock"
-              subtitle="Require Face ID, fingerprint or passcode to open"
+              subtitle="Require Face ID, Touch ID or your passcode to open"
               leading={
                 <IconBadge icon="finger-print" color={theme.colors.warning} size={36} outline />
               }
@@ -187,7 +187,7 @@ export default function SettingsScreen() {
           ) : (
             <ListRow
               title="App lock"
-              subtitle="Set up Face ID, fingerprint or a passcode on this phone to enable"
+              subtitle="Set up Face ID, Touch ID or a passcode on this iPhone to enable"
               leading={
                 <IconBadge icon="finger-print" color={theme.colors.textSubtle} size={36} outline />
               }
