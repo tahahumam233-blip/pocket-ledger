@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 
 import { planReminder, syncReminder } from '@/application/reminder';
+import { USES_CALENDAR_REMINDER } from '@/platform/calendar-reminder';
 import { expoReminderScheduler } from '@/platform/notifications';
 
 import { useLedgerStore } from './ledger-store';
@@ -17,6 +18,8 @@ export function useReminderSync() {
   const busy = useRef(false);
 
   useEffect(() => {
+    // The web app cannot schedule notifications; it offers a calendar alarm instead.
+    if (USES_CALENDAR_REMINDER) return;
     if (!services || !settings.onboardingCompleted) return;
     let cancelled = false;
 

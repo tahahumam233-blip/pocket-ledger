@@ -555,7 +555,7 @@ export function TransactionForm({
               {allReceipts.map((receipt) => (
                 <ReceiptThumbnail
                   key={receipt.id}
-                  uri={services.receipts.uriFor(receipt)}
+                  fileName={receipt.fileName}
                   size={72}
                   onPress={() =>
                     router.push({ pathname: '/receipt/[id]', params: { id: receipt.id } })

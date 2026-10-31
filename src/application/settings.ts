@@ -14,6 +14,8 @@ export type AppSettings = {
   appLockEnabled: boolean;
   /** Fingerprint of the last reminder that was scheduled, used to avoid rescheduling needlessly. */
   reminderSignature: string;
+  /** UTC timestamp of the last backup file, or an empty string. */
+  lastBackupAt: string;
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -26,6 +28,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   theme: 'system',
   appLockEnabled: false,
   reminderSignature: '',
+  lastBackupAt: '',
 };
 
 export const SETTINGS_KEYS = {
@@ -38,6 +41,7 @@ export const SETTINGS_KEYS = {
   theme: 'theme',
   appLockEnabled: 'app_lock_enabled',
   reminderSignature: 'reminder_signature',
+  lastBackupAt: 'last_backup_at',
 } as const satisfies Record<keyof AppSettings, string>;
 
 function parseBoolean(value: string | undefined, fallback: boolean): boolean {
@@ -80,6 +84,7 @@ export function parseSettings(record: Record<string, string>): AppSettings {
     theme: theme === 'light' || theme === 'dark' ? theme : 'system',
     appLockEnabled: parseBoolean(record[SETTINGS_KEYS.appLockEnabled], false),
     reminderSignature: record[SETTINGS_KEYS.reminderSignature] ?? '',
+    lastBackupAt: record[SETTINGS_KEYS.lastBackupAt] ?? '',
   };
 }
 
@@ -108,5 +113,6 @@ export function serializeSettings(settings: Partial<AppSettings>): Record<string
   if (settings.reminderSignature !== undefined) {
     out[SETTINGS_KEYS.reminderSignature] = settings.reminderSignature;
   }
+  if (settings.lastBackupAt !== undefined) out[SETTINGS_KEYS.lastBackupAt] = settings.lastBackupAt;
   return out;
 }

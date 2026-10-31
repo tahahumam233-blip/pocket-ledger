@@ -2,7 +2,6 @@
 
 Not started; recorded so nothing is forgotten.
 
-- Backup and restore of the whole ledger including receipt photos (zip) and import on a new phone.
 - Monthly budgets per category with progress on Home.
 - Recurring entries (rent, salary) with a nightly materialization step.
 - Exchange-rate helper for the exchange form (manual rate entry, remembered per day).
@@ -14,3 +13,7 @@ Not started; recorded so nothing is forgotten.
 - Automated UI tests on device (Maestro) in addition to the web walkthrough.
 - Reports: weekday breakdown and per-account spending.
 - Purge of soft-deleted transactions older than a chosen age (repository support exists).
+- Automated tests in Safari / WebKit for the web app (current end-to-end checks run in Chromium).
+- Optional encrypted backup files (password protected).
+- Web Push reminder as an alternative to the Calendar alert, if a small notification relay is ever acceptable.
+- A WebAuthn-based lock for the web app.

@@ -2,13 +2,15 @@ import { Image } from 'expo-image';
 import { StyleSheet, View } from 'react-native';
 
 import { useTheme } from '@/design';
+import { useReceiptUri } from '@/state/use-receipt-uri';
 
 import { AppText } from './app-text';
 import { Icon } from './icon';
 import { PressableScale } from './pressable-scale';
 
 type ReceiptThumbnailProps = {
-  uri: string;
+  /** Stored receipt file name; the image is resolved through the receipt service. */
+  fileName: string;
   caption?: string;
   badge?: string;
   badgeTone?: 'warning' | 'success';
@@ -17,7 +19,7 @@ type ReceiptThumbnailProps = {
 };
 
 export function ReceiptThumbnail({
-  uri,
+  fileName,
   caption,
   badge,
   badgeTone = 'warning',
@@ -25,6 +27,7 @@ export function ReceiptThumbnail({
   onPress,
 }: ReceiptThumbnailProps) {
   const theme = useTheme();
+  const uri = useReceiptUri(fileName);
   const badgeColor = badgeTone === 'warning' ? theme.colors.warning : theme.colors.income;
   return (
     <PressableScale

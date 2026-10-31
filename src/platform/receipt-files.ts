@@ -1,5 +1,4 @@
 import { Directory, File, Paths } from 'expo-file-system';
-import { Platform } from 'react-native';
 
 import type { ReceiptFileStore } from '@/application/ports';
 
@@ -14,7 +13,7 @@ function receiptsDirectory(): Directory {
 }
 
 /** Keeps receipt images in the app's private documents folder, referenced by file name only. */
-export const nativeReceiptFiles: ReceiptFileStore = {
+export const receiptFiles: ReceiptFileStore = {
   async persist(sourceUri, fileName) {
     const destination = new File(receiptsDirectory(), fileName);
     await new File(sourceUri).copy(destination, { overwrite: true });
@@ -23,34 +22,21 @@ export const nativeReceiptFiles: ReceiptFileStore = {
     const file = new File(receiptsDirectory(), fileName);
     if (file.exists) file.delete();
   },
-  uriFor(fileName) {
+  async resolveUri(fileName) {
     return new File(receiptsDirectory(), fileName).uri;
   },
+  async readBase64(fileName) {
+    const file = new File(receiptsDirectory(), fileName);
+    return file.exists ? file.base64() : null;
+  },
+  async writeBase64(fileName, base64) {
+    const file = new File(receiptsDirectory(), fileName);
+    if (file.exists) file.delete();
+    file.create();
+    await file.write(base64, { encoding: 'base64' });
+  },
+  async removeAll() {
+    const directory = new Directory(Paths.document, RECEIPTS_FOLDER);
+    if (directory.exists) directory.delete();
+  },
 };
-
-/** The web preview keeps the picked object URL in memory; web is not a release target. */
-const webUris = new Map<string, string>();
-export const webReceiptFiles: ReceiptFileStore = {
-  async persist(sourceUri, fileName) {
-    webUris.set(fileName, sourceUri);
-  },
-  async remove(fileName) {
-    webUris.delete(fileName);
-  },
-  uriFor(fileName) {
-    return webUris.get(fileName) ?? '';
-  },
-};
-
-export const receiptFiles: ReceiptFileStore =
-  Platform.OS === 'web' ? webReceiptFiles : nativeReceiptFiles;
-
-/** Removes every stored receipt image (used by "erase all data"). */
-export async function removeAllReceiptFiles(): Promise<void> {
-  if (Platform.OS === 'web') {
-    webUris.clear();
-    return;
-  }
-  const directory = new Directory(Paths.document, RECEIPTS_FOLDER);
-  if (directory.exists) directory.delete();
-}

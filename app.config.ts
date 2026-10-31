@@ -6,6 +6,7 @@ import brand from './src/config/brand.json';
 // or provided through the environment on a build machine.
 const easProjectId = process.env.EAS_PROJECT_ID || brand.easProjectId;
 const expoOwner = process.env.EXPO_OWNER || brand.expoOwner;
+const webBaseUrl = (process.env.WEB_BASE_URL || '').replace(/\/+$/, '');
 
 const config: ExpoConfig = {
   name: brand.name,
@@ -34,8 +35,13 @@ const config: ExpoConfig = {
     predictiveBackGestureEnabled: false,
   },
   web: {
-    output: 'static',
+    // A single-page app installs cleanly to the iPhone home screen and works offline.
+    output: 'single',
     favicon: './assets/images/favicon.png',
+    name: brand.name,
+    shortName: 'Ledger',
+    description: 'Private two-currency spending tracker that works offline.',
+    backgroundColor: brand.colors.splashBackground,
   },
   plugins: [
     'expo-router',
@@ -81,6 +87,8 @@ const config: ExpoConfig = {
   ],
   experiments: {
     typedRoutes: true,
+    // Set when the web app is published under a sub-path, e.g. /pocket-ledger on GitHub Pages.
+    ...(webBaseUrl ? { baseUrl: webBaseUrl } : {}),
   },
   ...(easProjectId ? { extra: { eas: { projectId: easProjectId } } } : {}),
 };

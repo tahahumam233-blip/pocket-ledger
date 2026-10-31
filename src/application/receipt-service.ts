@@ -79,8 +79,8 @@ export function createReceiptService(deps: {
       return repos.receipts.getByTransactionId(transactionId);
     },
 
-    uriFor(receipt: Pick<Receipt, 'fileName'>): string {
-      return files.uriFor(receipt.fileName);
+    resolveUri(receipt: Pick<Receipt, 'fileName'>): Promise<string> {
+      return files.resolveUri(receipt.fileName);
     },
 
     /** Creates the transaction for a pending receipt and links them in one write. */
@@ -106,6 +106,11 @@ export function createReceiptService(deps: {
 
     async updateNote(receiptId: string, note: string): Promise<void> {
       await repos.receipts.updateNote(receiptId, note.trim());
+    },
+
+    /** Deletes every stored receipt image (used when erasing all data). */
+    async removeAllFiles(): Promise<void> {
+      await files.removeAll();
     },
 
     /** Removes the receipt record and its image file. */

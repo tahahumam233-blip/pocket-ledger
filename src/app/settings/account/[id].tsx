@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Platform, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/app-text';
 import { Button } from '@/components/button';
@@ -10,6 +10,7 @@ import { IconBadge } from '@/components/icon-badge';
 import { PressableScale } from '@/components/pressable-scale';
 import { Screen } from '@/components/screen';
 import { SegmentedControl } from '@/components/segmented-control';
+import { askConfirm } from '@/platform/confirm';
 import { useTheme, withAlpha } from '@/design';
 import {
   ACCOUNT_KIND_META,
@@ -106,18 +107,15 @@ function AccountForm({ account }: { account: Account | null }) {
         });
       }
     };
-    if (Platform.OS === 'web') {
-      void perform();
-      return;
-    }
-    Alert.alert(
-      'Remove this account?',
-      'If it has entries it is archived instead of deleted, so your history and reports stay correct.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Remove', style: 'destructive', onPress: () => void perform() },
-      ],
-    );
+    void askConfirm({
+      title: 'Remove this account?',
+      message:
+        'If it has entries it is archived instead of deleted, so your history and reports stay correct.',
+      confirmLabel: 'Remove',
+      destructive: true,
+    }).then((confirmed) => {
+      if (confirmed) void perform();
+    });
   };
 
   return (

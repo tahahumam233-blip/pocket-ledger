@@ -39,6 +39,8 @@ export type HomeSnapshot = {
   recentTransactions: TransactionWithLines[];
   pendingReceipts: number;
   today: IsoDate;
+  /** True once the ledger is a week old and the last backup is more than 30 days old. */
+  backupDue: boolean;
 };
 
 export type MonthReport = {
@@ -75,6 +77,15 @@ function toRecord(map: Map<CurrencyCode, MinorUnits>): Partial<Record<CurrencyCo
   const record: Partial<Record<CurrencyCode, MinorUnits>> = {};
   for (const [currency, amount] of map) record[currency] = amount;
   return record;
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export function isBackupDue(accounts: Account[], lastBackupAt: string, now: Date): boolean {
+  if (accounts.length === 0) return false;
+  const firstUse = Math.min(...accounts.map((account) => Date.parse(account.createdAt)));
+  const lastBackup = lastBackupAt ? Date.parse(lastBackupAt) : 0;
+  return now.getTime() - firstUse > 7 * DAY_MS && now.getTime() - lastBackup > 30 * DAY_MS;
 }
 
 export function createQueries(repos: Repositories, clock?: Clock) {
@@ -119,6 +130,7 @@ export function createQueries(repos: Repositories, clock?: Clock) {
         recentTransactions: recent,
         pendingReceipts,
         today,
+        backupDue: isBackupDue(accounts, settings.lastBackupAt, now()),
       };
     },
 

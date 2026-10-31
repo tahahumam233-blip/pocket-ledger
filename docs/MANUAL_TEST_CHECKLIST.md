@@ -40,3 +40,16 @@ Run on a real phone after changes to screens, storage or notifications.
 - [ ] App lock: enable, background the app, return; the lock screen appears and biometrics unlock it.
 - [ ] Export CSV; open it in a spreadsheet and check amounts and currencies.
 - [ ] Erase all data returns to onboarding.
+
+## iPhone web app
+
+- [ ] Opening the address in Safari shows the Add to Home Screen guide.
+- [ ] After adding to the Home Screen, the app opens full screen with the Ledger icon and no Safari bars.
+- [ ] Setup's "Add reminder to Calendar" shows the iPhone Add to Calendar screen; the event repeats daily with an alert at the chosen time.
+- [ ] Record entries, close the app from the app switcher, reopen: everything is still there.
+- [ ] Turn on Airplane Mode and reopen the app: it loads with all data.
+- [ ] Snap a receipt: the camera opens directly; the photo appears in the inbox and survives a restart.
+- [ ] The date and time chips open the iPhone wheels.
+- [ ] Back up now offers Save to Files; the file appears in iCloud Drive.
+- [ ] Erase all data, then Restore from a backup on the first screen: entries and photos return.
+- [ ] Publish a change and reopen the app twice: the new version appears.

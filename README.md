@@ -5,38 +5,21 @@ A private, offline spending tracker for iPhone and Android, built with Expo and 
 - **Two currencies, never mixed.** Pick a primary and a secondary currency; every total is shown per currency.
 - **Safe, Pocket and Bank.** Three accounts out of the box (add more if you like), each holding both currencies.
 - **Snap receipts now, add the amount later.** Photos wait in an inbox until you record them.
-- **A nightly reminder** at the time you choose, scheduled on the phone itself.
-- **Reports** by category and by month, transfers and exchanges between currencies, balance adjustments, CSV export, dark mode and an optional Face ID / fingerprint lock.
+- **A nightly reminder** at the time you choose: a phone notification in the native app, a daily Calendar alert in the iPhone web app.
+- **Reports** by category and by month, transfers and exchanges between currencies, balance adjustments, CSV export, backup and restore with photos, dark mode, and an optional Face ID / fingerprint lock in the native app.
 - **No account, no cloud, no ads.** Everything stays on the phone.
 
 ![App icon](assets/images/splash-icon.png)
 
 ## Get it on your phone
 
-The quickest free path is **Expo Go**. You need a computer with [Node.js 22](https://nodejs.org) and a phone on the same Wi-Fi. If you have never done this before, follow [docs/GET_IT_ON_YOUR_PHONE.md](docs/GET_IT_ON_YOUR_PHONE.md), which walks through every step, including building an installable Android APK and the options for iPhone.
+**iPhone:** install the free web app on your Home Screen. It opens full screen like any app, works offline and needs no computer once published. Publish it once with GitHub Pages (the **Publish iPhone web app** workflow), open the address in Safari, then Share, Add to Home Screen:
 
-The short version:
+`https://tahahumam233-blip.github.io/pocket-ledger/`
 
-```sh
-git clone <this repository>
-cd pocket-ledger
-npm install
-npx expo login        # free Expo account, needed for iPhone
-npx expo start
-```
+**Android:** build an installable APK with EAS (`npm run build:android`), or add the same web app to the home screen from Chrome.
 
-Then install **Expo Go** from the App Store or Google Play, sign in with the same Expo account, and scan the QR code shown in the terminal (iPhone: Camera app; Android: the Expo Go app). If the phone cannot reach the computer, run `npx expo start --tunnel` instead.
-
-For a real app icon on the home screen, build an installable Android APK with EAS (free tier):
-
-```sh
-npm install -g eas-cli
-eas login
-eas init              # creates the project; copy the printed ID into src/config/brand.json
-npm run build:android # eas build --platform android --profile preview
-```
-
-The build page shows a QR code; open it on the phone to download and install the APK. See the guide for iPhone options, which require a paid Apple developer account for anything beyond Expo Go.
+Every step, including the one-time publishing setup and backups, is in [docs/GET_IT_ON_YOUR_PHONE.md](docs/GET_IT_ON_YOUR_PHONE.md).
 
 ## What the app does
 
@@ -58,7 +41,9 @@ npm install
 npm run start          # Expo dev server
 npm run android        # open on a connected Android device / emulator
 npm run ios            # open in the iOS Simulator (macOS)
-npm run web            # browser preview (SQLite runs in WebAssembly)
+npm run web            # browser preview of the web app
+npm run build:web      # build the installable web app into dist/ (set WEB_BASE_URL for a sub-path)
+npm run preview:web    # serve dist/ locally the way GitHub Pages would
 npm run check          # prettier, eslint, strict TypeScript and jest
 npm run test:watch
 npm run doctor         # expo-doctor
@@ -75,9 +60,11 @@ src/design/         Colour, spacing and typography tokens, theme provider
 src/domain/         Pure TypeScript accounting rules (no React, no SQLite)
 src/data/           SQLite schema, migrations, repositories, driver abstraction
 src/application/    Use cases: ledger, receipts, onboarding, reminders, export
-src/platform/       Thin adapters over device APIs (files, notifications, camera, haptics)
+src/platform/       Thin adapters over device APIs; *.web.ts files are the iPhone web app versions
 src/state/          Zustand store, query hook, boot and reminder sync
 src/features/       Feature-specific screens and hooks
+scripts/            Web build helpers: reminder calendar files, service worker, local server
+public/             Web app HTML shell and Home Screen icons
 docs/               Product, architecture, data model, privacy, decisions, backlog
 ```
 
@@ -85,4 +72,4 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the dependency rules and [d
 
 ## Privacy
 
-All data lives in a SQLite database and a private folder inside the app on the device. There is no backend, sync, analytics or advertising. Deleting the app deletes the ledger; export a CSV from Settings if you want a copy. Details are in [docs/PRIVACY.md](docs/PRIVACY.md).
+All data lives on the phone: a SQLite database and receipt photos inside the app's private storage (in the web app, the installed app's browser storage). There is no backend, sync, analytics or advertising. Deleting the app deletes the ledger, so use Settings, Back up now to keep a copy in iCloud Drive or Files. Details are in [docs/PRIVACY.md](docs/PRIVACY.md).

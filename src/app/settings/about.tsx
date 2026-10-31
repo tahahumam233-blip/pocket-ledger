@@ -1,4 +1,4 @@
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/app-text';
 import { Card } from '@/components/card';
@@ -6,11 +6,11 @@ import { IconBadge } from '@/components/icon-badge';
 import { Screen } from '@/components/screen';
 import { useTheme } from '@/design';
 
-const POINTS = [
+const NATIVE_POINTS = [
   {
     icon: 'phone-portrait',
     title: 'Stored on this phone only',
-    copy: 'Your ledger lives in a local database inside the app, and receipt photos are copied into the app’s private folder. Nothing is uploaded.',
+    copy: 'Your ledger lives in a local database inside the app, and receipt photos are copied into the app\u2019s private folder. Nothing is uploaded.',
   },
   {
     icon: 'cloud-offline',
@@ -23,14 +23,37 @@ const POINTS = [
     copy: 'The nightly reminder is scheduled on the device itself. No push service is involved.',
   },
   {
-    icon: 'download',
-    title: 'You can take your data with you',
-    copy: 'Export every entry as a CSV file from Settings whenever you like.',
+    icon: 'cloud-upload',
+    title: 'Back up to a file you keep',
+    copy: 'Settings \u2192 Back up now saves everything, photos included, to Files or iCloud Drive. Restore it on a new phone.',
+  },
+  {
+    icon: 'calculator',
+    title: 'Balances are always explainable',
+    copy: 'Every balance is the sum of its entries. Adjustments are added as new entries; history is never rewritten.',
+  },
+];
+
+const WEB_POINTS = [
+  {
+    icon: 'phone-portrait',
+    title: 'Stored on this iPhone only',
+    copy: 'Entries and receipt photos are kept in the installed app\u2019s private storage. Nothing is uploaded, and the web address only delivers the app itself.',
+  },
+  {
+    icon: 'cloud-offline',
+    title: 'Works without internet',
+    copy: 'After the first visit the whole app is saved on the phone. There is no account, no sync and no server.',
   },
   {
     icon: 'warning',
-    title: 'Back up your phone',
-    copy: 'Because nothing is in the cloud, deleting the app or losing the phone deletes the ledger. Your phone’s own backup (iCloud or Google) includes app data.',
+    title: 'Back up regularly',
+    copy: 'Removing the app from your Home Screen deletes its data. Use Settings \u2192 Back up now and keep the file in iCloud Drive or Files. Restore it any time.',
+  },
+  {
+    icon: 'calendar',
+    title: 'Reminders live in your Calendar',
+    copy: 'The nightly reminder is a repeating event with an alert in your own Calendar, so it works even when the app is closed.',
   },
   {
     icon: 'calculator',
@@ -47,7 +70,7 @@ export default function AboutScreen() {
         Pocket Ledger is a personal bookkeeping app. It records what you tell it and never moves
         real money.
       </AppText>
-      {POINTS.map((point) => (
+      {(Platform.OS === 'web' ? WEB_POINTS : NATIVE_POINTS).map((point) => (
         <Card key={point.title}>
           <View style={styles.row}>
             <IconBadge icon={point.icon} color={theme.colors.primary} size={40} outline />

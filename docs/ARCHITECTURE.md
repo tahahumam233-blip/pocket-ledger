@@ -33,6 +33,15 @@ Screens never run SQL or compute balances; navigation never queries data.
 - **Reminder**: `planReminder` turns settings plus the pending receipt count into a plan; `syncReminder` cancels/schedules only when the plan changed. It runs after each ledger refresh and when the app returns to the foreground.
 - **App lock**: locks at cold start and when returning from the background while enabled; unlocking uses the device biometrics or passcode.
 
-## Web
+## The iPhone web app
 
-Web is a development convenience, not a release target. `metro.config.js` adds `.wasm` to the asset extensions and the cross-origin isolation headers that expo-sqlite's WebAssembly build needs. Receipt images on web are kept in memory only.
+The same code base ships as an installable web app (a Progressive Web App) for iPhone. Files named `*.web.ts(x)` replace their native counterparts when Metro bundles for the web.
+
+- **Database:** `src/data/open-database.web.ts` runs SQLite compiled to WebAssembly with sql.js. The database lives in memory and `createSqlJsDriver` saves a snapshot of the whole file to IndexedDB after every committed write; a write only resolves once its snapshot is stored. The same repositories and services run unchanged, and the full integration suite runs against both the sql.js driver and `node:sqlite`. No cross-origin isolation headers are needed, so any static host works.
+- **Receipt photos:** `src/platform/receipt-files.web.ts` shrinks pictures to at most 2000 px on a canvas, stores them as JPEG in Cache Storage, and hands out object URLs through `useReceiptUri`.
+- **Reminder:** web apps cannot schedule notifications without a server, so `scripts/prepare-web.js` publishes one calendar file per five minutes of the day (`public/reminders/pocket-ledger-HHMM.ics`, a daily repeating event with an alert). The reminder screens open the file for the chosen time and iPhone offers to add it to Calendar. `useReminderSync` does nothing on the web.
+- **Dialogs, pickers and sharing:** `askConfirm` uses native alerts on iOS/Android and an in-app dialog (`ConfirmHost`) on the web. Date and time fields hide native `<input type="date|time">` elements over the chips so iPhone shows its own wheels. Files are shared with the Web Share API (Save to Files, AirDrop) and fall back to a download.
+- **Shell:** `web.output` is `single` (one page). `public/index.html` carries the Home Screen meta tags, and `scripts/build-pwa.js` fills in the base path, writes `manifest.webmanifest`, a `404.html` copy for deep links on GitHub Pages, and `sw.js`, a service worker that precaches every file so the app opens offline. Cache names carry a content hash so a new publish replaces the old version.
+- **Base path:** `WEB_BASE_URL` (for example `/pocket-ledger`) sets `experiments.baseUrl`; `process.env.EXPO_BASE_URL` is inlined into the bundle and read by `src/platform/web-base.ts`.
+- **Install guidance:** in Safari on iPhone the app first shows how to add it to the Home Screen, because the installed app and the Safari tab keep separate storage.
+- **Publishing:** `.github/workflows/deploy-web.yml` builds with the Pages base path and deploys to GitHub Pages on every push to `main`.

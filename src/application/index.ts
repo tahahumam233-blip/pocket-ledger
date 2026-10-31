@@ -1,5 +1,6 @@
 import type { Repositories } from '@/data';
 
+import { createBackupService } from './backup-service';
 import { createExportService } from './export-service';
 import { createLedgerService } from './ledger-service';
 import type { Clock, IdGenerator, ReceiptFileStore } from './ports';
@@ -7,6 +8,7 @@ import { createQueries } from './queries';
 import { createReceiptService } from './receipt-service';
 import { createSetupService } from './setup-service';
 
+export * from './backup-service';
 export * from './export-service';
 export * from './ledger-service';
 export * from './ports';
@@ -23,6 +25,7 @@ export type AppServices = {
   setup: ReturnType<typeof createSetupService>;
   queries: ReturnType<typeof createQueries>;
   exporter: ReturnType<typeof createExportService>;
+  backup: ReturnType<typeof createBackupService>;
 };
 
 export function createAppServices(deps: {
@@ -40,5 +43,6 @@ export function createAppServices(deps: {
     setup: createSetupService({ repos, ledger, clock, newId }),
     queries: createQueries(repos, clock),
     exporter: createExportService(repos, clock),
+    backup: createBackupService({ repos, files, clock }),
   };
 }

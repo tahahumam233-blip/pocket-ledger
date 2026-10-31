@@ -48,6 +48,8 @@ npm run start:tunnel
 npm run android
 npm run ios
 npm run web
+npm run build:web
+npm run preview:web
 npm run format
 npm run format:check
 npm run lint
@@ -60,7 +62,7 @@ npm run build:android
 npm run build:ios
 ```
 
-`npm run check` is the gate: formatting, lint, strict TypeScript and tests. Run it before declaring work done. `npx expo export --platform android` confirms Metro bundles the app.
+`npm run check` is the gate: formatting, lint, strict TypeScript and tests. Run it before declaring work done. `npx expo export --platform android` confirms Metro bundles the app, and `WEB_BASE_URL=/pocket-ledger npm run build:web` builds the iPhone web app (files named `*.web.ts(x)` are its platform versions).
 
 ## Definition of done
 

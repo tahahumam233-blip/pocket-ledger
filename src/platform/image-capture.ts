@@ -36,7 +36,15 @@ function explainDenied(what: 'camera' | 'photos') {
 }
 
 export async function captureFromCamera(): Promise<CapturedImage | null> {
-  if (Platform.OS === 'web') return pickFromLibrary();
+  if (Platform.OS === 'web') {
+    // Opens the camera straight away on iPhone. Must run directly from a tap.
+    return toCaptured(
+      await ImagePicker.launchCameraAsync({
+        ...PICKER_OPTIONS,
+        cameraType: ImagePicker.CameraType.back,
+      }),
+    );
+  }
   const permission = await ImagePicker.requestCameraPermissionsAsync();
   if (!permission.granted) {
     explainDenied('camera');

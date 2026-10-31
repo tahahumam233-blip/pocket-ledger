@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { AppText } from '@/components/app-text';
 import { Button } from '@/components/button';
@@ -11,11 +11,13 @@ import { EmptyState } from '@/components/empty-state';
 import { TextField } from '@/components/form-row';
 import { Screen } from '@/components/screen';
 import { TransactionRow } from '@/components/transaction-row';
+import { askConfirm } from '@/platform/confirm';
 import { useTheme } from '@/design';
 import { formatLongDate, toIsoDate } from '@/domain';
 import { useLedgerStore, useServices } from '@/state/ledger-store';
 import { showToast } from '@/state/toast-store';
 import { useQuery } from '@/state/use-query';
+import { useReceiptUri } from '@/state/use-receipt-uri';
 import { buildLookup } from '@/utils/transaction-presenter';
 
 export default function ReceiptDetailScreen() {
@@ -37,6 +39,7 @@ export default function ReceiptDetailScreen() {
     [id],
   );
   const receipt = query.data?.receipt;
+  const imageUri = useReceiptUri(receipt?.fileName);
   if (!query.data) return <Screen header={{ title: 'Receipt', back: true }} />;
   if (!receipt) {
     return (
@@ -69,18 +72,14 @@ export default function ReceiptDetailScreen() {
       if (router.canGoBack()) router.back();
       else router.replace('/receipts');
     };
-    if (Platform.OS === 'web') {
-      void perform();
-      return;
-    }
-    Alert.alert(
-      'Delete this receipt?',
-      'The photo is removed from this phone. Any linked entry stays in your ledger.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => void perform() },
-      ],
-    );
+    void askConfirm({
+      title: 'Delete this receipt?',
+      message: 'The photo is removed from this phone. Any linked entry stays in your ledger.',
+      confirmLabel: 'Delete',
+      destructive: true,
+    }).then((confirmed) => {
+      if (confirmed) void perform();
+    });
   };
 
   return (
@@ -109,7 +108,7 @@ export default function ReceiptDetailScreen() {
         ]}
       >
         <Image
-          source={{ uri: services.receipts.uriFor(receipt) }}
+          source={imageUri ? { uri: imageUri } : undefined}
           style={styles.image}
           contentFit="contain"
           transition={200}

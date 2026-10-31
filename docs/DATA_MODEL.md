@@ -46,3 +46,14 @@ Amounts are integers in minor units. Fraction digits per currency are defined in
 ## Timestamps and dates
 
 `created_at`, `updated_at`, `deleted_at`, `captured_at` and `archived_at` are UTC ISO 8601 strings. `posted_date` is a date-only string in the user's local calendar; month filters compare strings.
+
+## Storage locations
+
+| Platform          | Database                                                                                | Receipt photos                                  |
+| ----------------- | --------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| iOS / Android app | `pocket-ledger.db` via expo-sqlite (WAL)                                                | `Documents/receipts/<id>.<ext>`                 |
+| iPhone web app    | sql.js in memory, snapshot in IndexedDB `pocket-ledger` / `snapshots` / `ledger.sqlite` | Cache Storage `pocket-ledger-receipts-v1`, JPEG |
+
+## Backup file
+
+`pocket-ledger-backup-YYYY-MM-DD.json` holds `format`, `version` (1), `schemaVersion`, `exportedAt`, every row of every table, and receipt photos as base64 keyed by file name. Restore validates the format, version, schema version, column types and file names, then replaces all tables in one transaction with foreign keys enforced; any invalid row leaves the ledger untouched. The `last_backup_at` setting records when a backup file was last saved.

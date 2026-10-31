@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Alert, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/app-text';
 import { Button } from '@/components/button';
@@ -10,10 +10,11 @@ import { ListRow } from '@/components/list-row';
 import { MoneyText } from '@/components/money-text';
 import { ReceiptThumbnail } from '@/components/receipt-thumbnail';
 import { Screen } from '@/components/screen';
+import { askConfirm } from '@/platform/confirm';
 import { useTheme } from '@/design';
 import { formatLongDate } from '@/domain';
 import { haptics } from '@/platform/haptics';
-import { useLedgerStore, useServices } from '@/state/ledger-store';
+import { useLedgerStore } from '@/state/ledger-store';
 import { showToast } from '@/state/toast-store';
 import { useQuery } from '@/state/use-query';
 import { buildLookup, presentTransaction } from '@/utils/transaction-presenter';
@@ -21,7 +22,6 @@ import { buildLookup, presentTransaction } from '@/utils/transaction-presenter';
 export default function TransactionDetailScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const services = useServices();
   const { id } = useLocalSearchParams<{ id: string }>();
   const snapshot = useLedgerStore((state) => state.snapshot);
   const mutate = useLedgerStore((state) => state.mutate);
@@ -84,18 +84,14 @@ export default function TransactionDetailScreen() {
         });
       }
     };
-    if (Platform.OS === 'web') {
-      void perform();
-      return;
-    }
-    Alert.alert(
-      'Delete this entry?',
-      'Balances and reports update immediately. You can undo for a few seconds.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => void perform() },
-      ],
-    );
+    void askConfirm({
+      title: 'Delete this entry?',
+      message: 'Balances and reports update immediately. You can undo for a few seconds.',
+      confirmLabel: 'Delete',
+      destructive: true,
+    }).then((confirmed) => {
+      if (confirmed) void perform();
+    });
   };
 
   return (
@@ -196,7 +192,7 @@ export default function TransactionDetailScreen() {
             {receipts.map((receipt) => (
               <ReceiptThumbnail
                 key={receipt.id}
-                uri={services.receipts.uriFor(receipt)}
+                fileName={receipt.fileName}
                 size={96}
                 onPress={() =>
                   router.push({ pathname: '/receipt/[id]', params: { id: receipt.id } })

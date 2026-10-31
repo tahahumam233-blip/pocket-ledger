@@ -1,78 +1,79 @@
 # Get Pocket Ledger on your phone
 
-There are three ways to run the app on a real phone. Start with the first one; it is free and takes about ten minutes.
+| Phone              | Best option                            | Cost                              | Needs a computer?       |
+| ------------------ | -------------------------------------- | --------------------------------- | ----------------------- |
+| iPhone             | Install the web app on the Home Screen | Free                              | No                      |
+| Android            | Install the APK built by EAS           | Free tier                         | Only to start the build |
+| iPhone, native app | TestFlight or internal build           | Apple Developer Program, $99/year | Only to start the build |
 
-| Option                        | Cost                               | Needs a computer?       | Result                                                       |
-| ----------------------------- | ---------------------------------- | ----------------------- | ------------------------------------------------------------ |
-| 1. Expo Go                    | Free                               | Yes, while running      | Opens inside the Expo Go app. Great for trying it.           |
-| 2. Android APK with EAS Build | Free tier                          | Only to start the build | A real app with its own icon, installed from a link.         |
-| 3. iPhone install             | Apple developer account ($99/year) | Only to start the build | A real app on an iPhone via TestFlight or an internal build. |
+## iPhone: the Home Screen web app (recommended)
 
-Everything below assumes the project is on your computer:
+The web app is the same Pocket Ledger with the same screens. Installed on the Home Screen it opens full screen with its own icon, works offline and keeps everything on the phone. You never need Expo or a computer to use it.
+
+### Step 1: publish it once (about five minutes, can be done from the phone)
+
+The app is published by GitHub Pages, straight from this repository.
+
+1. Merge the latest code into the `main` branch.
+2. Choose how to host it:
+   - **Simplest: make the repository public.** On github.com open the repository, then Settings, General, Danger Zone, Change visibility, Public. Only the code becomes visible. Your entries and photos never leave your iPhone. GitHub Pages is free only for public repositories on a free account.
+   - **To keep the code private:** use Cloudflare Pages (free). Create an account, choose Workers & Pages, Create, Pages, Connect to Git, pick this repository, set the build command to `npm run build:web` and the output directory to `dist`. Your address will end in `pages.dev`.
+3. For GitHub Pages: Settings, Pages, Build and deployment, Source: **GitHub Actions**.
+4. Open the Actions tab, choose **Publish iPhone web app** and press **Run workflow**. It also runs on every push to `main`.
+5. When it finishes, the address is shown on the run page. For this repository it is:
+   `https://tahahumam233-blip.github.io/pocket-ledger/`
+
+### Step 2: install it on the iPhone
+
+1. Open the address in **Safari**.
+2. The app shows a short guide. Tap the **Share** button (the square with an arrow; on newer iOS tap **•••** first), then **Add to Home Screen**. Keep **Open as Web App** switched on and tap **Add**.
+3. Open **Ledger** from the Home Screen and complete setup there, not in the Safari tab. The installed app and Safari keep separate storage.
+4. On the reminder step, tap **Add reminder to Calendar**, then **Add to Calendar**. Each evening the Calendar alert reminds you to record your spending, even with the app closed.
+
+### Keep a backup
+
+Because nothing is stored in the cloud, removing the icon from the Home Screen deletes the ledger. Once in a while open Settings, tap **Back up now**, then **Save to Files** and pick iCloud Drive. The file contains every entry and receipt photo. To move to a new phone or recover, install the app again and tap **Restore from a backup instead** on the first screen, or **Restore from backup** in Settings. Home shows a reminder when a month has passed without a backup.
+
+### Updates
+
+Every publish updates the app automatically. The new version loads the next time you open it from the Home Screen; if you just published, close and reopen it once.
+
+### What differs from a native app
+
+- The nightly reminder is a Calendar alert rather than an app notification, because iPhone web apps cannot schedule notifications without a server.
+- Face ID app lock is not available in the web app.
+- Receipt photos are shrunk to a sensible size (2000 pixels on the long side) when saved.
+
+## Android: install an APK built with EAS (free tier)
+
+EAS Build compiles the app in the cloud and gives you a download link.
 
 ```sh
-git clone <this repository>
+git clone https://github.com/tahahumam233-blip/pocket-ledger
 cd pocket-ledger
 npm install
+npm install -g eas-cli
+eas login
+eas init
+npm run build:android
 ```
 
-You need [Node.js 22 or newer](https://nodejs.org). On Windows use PowerShell or the Windows Terminal; on macOS use Terminal.
+`eas init` prints a project ID and account name; because this project uses `app.config.ts`, paste them into `src/config/brand.json` as `easProjectId` and `expoOwner`. Say yes when asked to generate an Android keystore. When the build finishes, open the build page, tap **Install**, scan the QR code with the phone, download the APK and allow "Install unknown apps" for your browser. Android Chrome can also install the web app from the published address (menu, Add to Home screen).
 
-## Option 1: Expo Go (free, fastest)
+## iPhone: native app (paid)
 
-1. Install **Expo Go** on the phone from the App Store or Google Play. The store version runs the Expo SDK this project uses (SDK 58), which is why the project is kept on the latest SDK.
-2. Create a free account at <https://expo.dev/signup>, then on the computer run `npx expo login`. On the phone, open Expo Go and sign in with the same account. iPhones only open projects from a computer signed in to the same account; Android does not require it but it does no harm.
-3. Put the phone and the computer on the same Wi-Fi network.
-4. Run:
-   ```sh
-   npx expo start
-   ```
-5. Scan the QR code shown in the terminal. On iPhone use the Camera app; on Android tap "Scan QR code" inside Expo Go.
-6. If the phone cannot connect (guest Wi-Fi, firewalls, mobile data), stop the server and run `npx expo start --tunnel` instead. It is slower but works from anywhere.
+With the Apple Developer Program you can build a native iPhone app that adds Face ID lock and real notifications:
 
-Notes for Expo Go:
+- **TestFlight:** `eas build --platform ios --profile production`, then `eas submit --platform ios`, add yourself as an internal tester in App Store Connect and install from the TestFlight app.
+- **Internal distribution:** register the phone with `eas device:create`, run `npm run build:ios` and install from the build page link. Enable Developer Mode when asked.
 
-- The ledger is stored inside Expo Go's sandbox for this project. It persists between sessions as long as you keep Expo Go and open the same project.
-- The nightly reminder works in Expo Go (local notifications are supported). On Android it may arrive a few minutes late because Expo Go cannot use exact alarms.
-- The app icon and splash screen only appear in a real build (options 2 and 3).
+## Trying the app during development
 
-## Option 2: Android APK with EAS Build (free tier)
-
-EAS Build compiles the app in the cloud and gives you a download link. The free plan includes a monthly allowance of builds on a low-priority queue; a build can take 15 to 60 minutes while you wait.
-
-1. Install the EAS command line tool and sign in:
-   ```sh
-   npm install -g eas-cli
-   eas login
-   ```
-2. Link the project to your Expo account:
-   ```sh
-   eas init
-   ```
-   Because this project uses `app.config.ts`, EAS cannot write the project ID automatically. It prints the **project ID** and your **account name**: paste them into `src/config/brand.json` as `easProjectId` and `expoOwner`.
-3. Start the build:
-   ```sh
-   npm run build:android
-   ```
-   The first time, say **yes** when asked to generate a new Android keystore (EAS stores it for you).
-4. When it finishes, open the build page link that is printed (or <https://expo.dev>, Builds). Tap **Install** to show a QR code. Scan it with the phone, download the APK, and allow "Install unknown apps" for your browser when Android asks.
-5. Open **Pocket Ledger** from the home screen. Notifications, camera access and the app lock prompt for permission the first time they are used.
-
-Updating later: pull the new code, run `npm run build:android` again and install the new APK over the old one; the data is kept.
-
-## Option 3: iPhone
-
-Apple does not allow installing apps outside the App Store without a developer account, so for an iPhone you have these choices:
-
-- **Expo Go** (Option 1) is the only free route, and it works well for daily use as long as you keep the project around.
-- **TestFlight**: join the Apple Developer Program ($99/year), then run `eas build --platform ios --profile production` followed by `eas submit --platform ios`. Add yourself as an internal tester in App Store Connect and install from the TestFlight app.
-- **Internal distribution**: with the same developer account, register the iPhone with `eas device:create`, then run `eas build --platform ios --profile preview` and install from the build page link. Enable Developer Mode on the phone when prompted (Settings, Privacy & Security).
-- **A Mac with Xcode**: `npx expo run:ios --device` installs directly with a free Apple ID, but the signature expires after seven days and must be rebuilt.
+`npx expo start` and the Expo Go app remain available for quick testing, but they are not needed to use the app.
 
 ## Troubleshooting
 
-- **"Project is incompatible with this version of Expo Go"**: your Expo Go app and the project are on different SDK versions. Update Expo Go from the store, then run `npm install` again in the project.
-- **The QR code opens but the app never loads**: try `npx expo start --tunnel`, and make sure no VPN is active on the phone.
-- **Camera or photos are blocked**: allow them in the phone's Settings for Pocket Ledger (or for Expo Go when using Option 1).
-- **No reminder arrives**: check that notifications are allowed for the app, that the reminder is switched on in Settings, and that the phone is not in a battery-saver mode that blocks scheduled notifications.
-- **Build fails with "android.package"**: keep the `bundleIdentifier` in `src/config/brand.json` as a reverse-domain string such as `com.yourname.pocketledger`. Change it before the first build if you want your own.
+- **The web app shows an old version:** close it from the app switcher and open it again.
+- **The reminder did not appear:** open Calendar and check that the event "Record today's spending" exists with an alert, and that Calendar notifications are allowed in Settings, Notifications, Calendar.
+- **Camera does not open:** allow camera access for Safari websites in Settings, Apps, Safari, Camera.
+- **"Add to Home Screen" is missing:** make sure the address is open in Safari itself, not inside another app's browser.

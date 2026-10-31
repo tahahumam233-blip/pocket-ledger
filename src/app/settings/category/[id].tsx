@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Platform, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/app-text';
 import { Button } from '@/components/button';
@@ -9,6 +9,7 @@ import { Field, TextField } from '@/components/form-row';
 import { IconBadge } from '@/components/icon-badge';
 import { PressableScale } from '@/components/pressable-scale';
 import { Screen } from '@/components/screen';
+import { askConfirm } from '@/platform/confirm';
 import { useTheme, withAlpha } from '@/design';
 import { type Category, type CategoryKind, COLOR_CHOICES, ICON_CHOICES } from '@/domain';
 import { useLedgerStore } from '@/state/ledger-store';
@@ -81,18 +82,14 @@ function CategoryForm({ category, kind }: { category: Category | null; kind: Cat
         });
       }
     };
-    if (Platform.OS === 'web') {
-      void perform();
-      return;
-    }
-    Alert.alert(
-      'Remove this category?',
-      'If it has entries it is archived instead of deleted, so reports stay correct.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Remove', style: 'destructive', onPress: () => void perform() },
-      ],
-    );
+    void askConfirm({
+      title: 'Remove this category?',
+      message: 'If it has entries it is archived instead of deleted, so reports stay correct.',
+      confirmLabel: 'Remove',
+      destructive: true,
+    }).then((confirmed) => {
+      if (confirmed) void perform();
+    });
   };
 
   return (

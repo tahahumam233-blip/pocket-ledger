@@ -22,6 +22,9 @@ import {
   getCurrency,
   parseAmount,
 } from '@/domain';
+import { useBackup } from '@/features/backup/use-backup';
+import { CalendarReminderCard } from '@/features/reminders/calendar-reminder-card';
+import { USES_CALENDAR_REMINDER } from '@/platform/calendar-reminder';
 import { deviceCurrencyCode } from '@/platform/device-locale';
 import { haptics } from '@/platform/haptics';
 import { expoReminderScheduler } from '@/platform/notifications';
@@ -76,7 +79,8 @@ export default function OnboardingScreen() {
     bank: { enabled: true, balances: {} },
     other: { enabled: false, balances: {} },
   });
-  const [reminderEnabled, setReminderEnabled] = useState(true);
+  const [reminderEnabled, setReminderEnabled] = useState(!USES_CALENDAR_REMINDER);
+  const backup = useBackup();
   const [reminderTime, setReminderTime] = useState({ hour: 21, minute: 0 });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -224,6 +228,17 @@ export default function OnboardingScreen() {
               </View>
             ))}
           </View>
+          <PressableScale
+            onPress={() => void backup.restoreFromFile()}
+            accessibilityRole="button"
+            style={styles.restoreLink}
+            testID="onboarding-restore"
+          >
+            <Icon name="refresh" size={16} color={theme.colors.primary} />
+            <AppText variant="labelStrong" tone="primary">
+              {backup.busy === 'restore' ? 'Restoring…' : 'Restore from a backup instead'}
+            </AppText>
+          </PressableScale>
         </View>
       ) : null}
 
@@ -324,24 +339,35 @@ export default function OnboardingScreen() {
           <AppText tone="muted">
             Recording spending works best as a small daily habit. We can remind you each evening.
           </AppText>
-          <Card>
-            <View style={styles.reminderRow}>
-              <IconBadge icon="notifications" color={theme.colors.primary} size={44} outline />
-              <View style={styles.accountText}>
-                <AppText variant="bodyStrong">Daily reminder</AppText>
-                <AppText variant="caption" tone="muted">
-                  A single quiet notification, nothing else.
-                </AppText>
+          {USES_CALENDAR_REMINDER ? (
+            <CalendarReminderCard
+              hour={reminderTime.hour}
+              minute={reminderTime.minute}
+              added={reminderEnabled}
+              onChangeTime={(hour, minute) => setReminderTime({ hour, minute })}
+              onAdded={() => setReminderEnabled(true)}
+            />
+          ) : null}
+          {USES_CALENDAR_REMINDER ? null : (
+            <Card>
+              <View style={styles.reminderRow}>
+                <IconBadge icon="notifications" color={theme.colors.primary} size={44} outline />
+                <View style={styles.accountText}>
+                  <AppText variant="bodyStrong">Daily reminder</AppText>
+                  <AppText variant="caption" tone="muted">
+                    A single quiet notification, nothing else.
+                  </AppText>
+                </View>
+                <Switch
+                  value={reminderEnabled}
+                  onValueChange={(value) => void toggleReminder(value)}
+                  trackColor={{ true: theme.colors.primary, false: theme.colors.borderStrong }}
+                  thumbColor="#FFFFFF"
+                />
               </View>
-              <Switch
-                value={reminderEnabled}
-                onValueChange={(value) => void toggleReminder(value)}
-                trackColor={{ true: theme.colors.primary, false: theme.colors.borderStrong }}
-                thumbColor="#FFFFFF"
-              />
-            </View>
-          </Card>
-          {reminderEnabled ? (
+            </Card>
+          )}
+          {reminderEnabled && !USES_CALENDAR_REMINDER ? (
             <TimeField
               hour={reminderTime.hour}
               minute={reminderTime.minute}
@@ -500,6 +526,13 @@ const styles = StyleSheet.create({
   },
   privacyText: {
     flex: 1,
+  },
+  restoreLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
   },
   footer: {
     flexDirection: 'row',

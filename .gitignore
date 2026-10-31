@@ -43,3 +43,7 @@ coverage/
 # generated native folders
 /ios
 /android
+
+# generated web assets (scripts/prepare-web.js)
+public/reminders/
+public/sql-wasm-browser.wasm

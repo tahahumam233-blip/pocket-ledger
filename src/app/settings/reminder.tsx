@@ -1,4 +1,4 @@
-import { Linking, Platform, StyleSheet, Switch, View } from 'react-native';
+import { Linking, StyleSheet, Switch, View } from 'react-native';
 
 import { AppText } from '@/components/app-text';
 import { Button } from '@/components/button';
@@ -8,6 +8,8 @@ import { Screen } from '@/components/screen';
 import { TimeField } from '@/components/time-field';
 import { planReminder } from '@/application/reminder';
 import { useTheme } from '@/design';
+import { CalendarReminderCard } from '@/features/reminders/calendar-reminder-card';
+import { USES_CALENDAR_REMINDER } from '@/platform/calendar-reminder';
 import { expoReminderScheduler, getNotificationPermissionStatus } from '@/platform/notifications';
 import { useLedgerStore } from '@/state/ledger-store';
 import { showToast } from '@/state/toast-store';
@@ -24,12 +26,9 @@ export default function ReminderSettingsScreen() {
     if (next) {
       const allowed = await expoReminderScheduler.ensurePermission();
       if (!allowed) {
-        showToast(
-          Platform.OS === 'web'
-            ? 'Reminders need the phone app.'
-            : 'Notifications are turned off for Pocket Ledger in your phone settings.',
-          { tone: 'danger' },
-        );
+        showToast('Notifications are turned off for Pocket Ledger in your phone settings.', {
+          tone: 'danger',
+        });
         await permission.reload();
         return;
       }
@@ -38,6 +37,27 @@ export default function ReminderSettingsScreen() {
   };
 
   const preview = planReminder({ ...settings, reminderEnabled: true }, pending);
+
+  if (USES_CALENDAR_REMINDER) {
+    return (
+      <Screen header={{ title: 'Nightly reminder', back: true }}>
+        <AppText tone="muted">
+          A quiet alarm each evening helps you record the day while you still remember it.
+        </AppText>
+        <CalendarReminderCard
+          hour={settings.reminderHour}
+          minute={settings.reminderMinute}
+          added={settings.reminderEnabled}
+          onChangeTime={(hour, minute) =>
+            void mutate((s) =>
+              s.setup.updateSettings({ reminderHour: hour, reminderMinute: minute }),
+            )
+          }
+          onAdded={() => void mutate((s) => s.setup.updateSettings({ reminderEnabled: true }))}
+        />
+      </Screen>
+    );
+  }
 
   return (
     <Screen header={{ title: 'Nightly reminder', back: true }}>

@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AccountCard } from '@/components/account-card';
 import { AppText } from '@/components/app-text';
@@ -15,6 +15,7 @@ import { SectionHeader } from '@/components/section-header';
 import { TransactionRow } from '@/components/transaction-row';
 import { useTheme } from '@/design';
 import { formatLongDate, formatMoney } from '@/domain';
+import { useBackup } from '@/features/backup/use-backup';
 import { useQuickCapture } from '@/features/receipts/use-quick-capture';
 import { useLedgerStore } from '@/state/ledger-store';
 import { buildLookup } from '@/utils/transaction-presenter';
@@ -31,6 +32,7 @@ export default function HomeScreen() {
   const loading = useLedgerStore((state) => state.loading);
   const refresh = useLedgerStore((state) => state.refresh);
   const capture = useQuickCapture();
+  const backup = useBackup();
 
   if (!snapshot) return <Screen />;
   const {
@@ -46,6 +48,7 @@ export default function HomeScreen() {
   const [primary, ...others] = settings.currencies;
   const lookup = buildLookup(snapshot.accounts, snapshot.categories);
   const hour = new Date().getHours();
+  const suggestBackup = Platform.OS === 'web' && snapshot.backupDue;
 
   const spendLine = (totalsByCurrency: Partial<Record<string, number>>) => {
     const parts = settings.currencies
@@ -190,6 +193,23 @@ export default function HomeScreen() {
               </AppText>
               <AppText variant="caption" tone="muted">
                 Tap to finish recording them.
+              </AppText>
+            </View>
+            <Icon name="chevron-forward" size={18} color={theme.colors.textMuted} />
+          </View>
+        </Card>
+      ) : null}
+
+      {suggestBackup ? (
+        <Card onPress={() => void backup.backupNow()} accessibilityLabel="Back up now">
+          <View style={styles.bannerRow}>
+            <IconBadge icon="cloud-upload" color={theme.colors.primary} size={40} outline />
+            <View style={styles.bannerText}>
+              <AppText variant="bodyStrong">
+                {backup.busy === 'backup' ? 'Preparing backup…' : 'Time for a backup'}
+              </AppText>
+              <AppText variant="caption" tone="muted">
+                Save a copy to iCloud Drive in case the app is ever removed.
               </AppText>
             </View>
             <Icon name="chevron-forward" size={18} color={theme.colors.textMuted} />

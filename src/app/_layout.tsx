@@ -12,18 +12,25 @@ import {
 } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/app-text';
 import { Button } from '@/components/button';
+import { ConfirmHost } from '@/components/confirm-host';
 import { IconBadge } from '@/components/icon-badge';
 import { ToastHost } from '@/components/toast-host';
 import { AppThemeProvider, themes, useTheme } from '@/design';
 import { LockScreen } from '@/features/app-lock/lock-screen';
 import { useAppLock } from '@/features/app-lock/use-app-lock';
+import { InstallGuide } from '@/features/install/install-guide';
+import {
+  dismissInstallGuide,
+  installGuideDismissed,
+  isIosBrowserTab,
+} from '@/platform/web-install';
 import { useAppBoot } from '@/state/app-provider';
 import { useLedgerStore } from '@/state/ledger-store';
 import { useReminderSync } from '@/state/use-reminder-sync';
@@ -134,6 +141,9 @@ export default function RootLayout() {
   });
   const boot = useAppBoot();
   const themePreference = useLedgerStore((state) => state.settings.theme);
+  const [showInstallGuide, setShowInstallGuide] = useState(
+    () => isIosBrowserTab() && !installGuideDismissed(),
+  );
   const fontsReady = fontsLoaded || Boolean(fontError);
   const ready = fontsReady && boot.status !== 'loading';
 
@@ -147,7 +157,14 @@ export default function RootLayout() {
     <GestureHandlerRootView style={styles.fill}>
       <SafeAreaProvider>
         <AppThemeProvider preference={themePreference}>
-          {boot.status === 'error' ? (
+          {showInstallGuide ? (
+            <InstallGuide
+              onContinue={() => {
+                dismissInstallGuide();
+                setShowInstallGuide(false);
+              }}
+            />
+          ) : boot.status === 'error' ? (
             <Fallback
               title="The ledger could not be opened"
               message={boot.message}
@@ -157,6 +174,7 @@ export default function RootLayout() {
             <RootNavigator />
           )}
           <ToastHost />
+          <ConfirmHost />
         </AppThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

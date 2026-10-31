@@ -12,13 +12,12 @@ import { SectionHeader } from '@/components/section-header';
 import { useTheme } from '@/design';
 import { formatDateLabel, toIsoDate } from '@/domain';
 import { useQuickCapture } from '@/features/receipts/use-quick-capture';
-import { useLedgerStore, useServices } from '@/state/ledger-store';
+import { useLedgerStore } from '@/state/ledger-store';
 import { useQuery } from '@/state/use-query';
 
 export default function ReceiptsScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const services = useServices();
   const today = useLedgerStore((state) => state.snapshot?.today);
   const capture = useQuickCapture();
   const inbox = useQuery((s) => s.queries.receiptsInbox(), []);
@@ -92,7 +91,7 @@ export default function ReceiptsScreen() {
             {pending.map((receipt) => (
               <ReceiptThumbnail
                 key={receipt.id}
-                uri={services.receipts.uriFor(receipt)}
+                fileName={receipt.fileName}
                 size={tile}
                 badge="Add amount"
                 caption={captionFor(receipt.capturedAt)}
@@ -112,7 +111,7 @@ export default function ReceiptsScreen() {
             {done.map((receipt) => (
               <ReceiptThumbnail
                 key={receipt.id}
-                uri={services.receipts.uriFor(receipt)}
+                fileName={receipt.fileName}
                 size={tile}
                 badge="Done"
                 badgeTone="success"
