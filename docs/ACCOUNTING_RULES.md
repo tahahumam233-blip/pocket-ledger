@@ -13,3 +13,20 @@ These are invariants, not preferences. Tests in `src/domain/*.test.ts` and `src/
 9. Accounts and categories with history are archived, never deleted. A currency with history cannot be replaced.
 10. Editing validates the complete replacement before the write transaction opens, and replaces every line of the transaction in one transaction.
 11. Posting dates are `YYYY-MM-DD` in local time; audit timestamps are UTC ISO strings. They are never mixed.
+
+## People and debts
+
+12. A person is a ledger account of class `person`. Its balance per currency is what they owe you when positive and what you owe them when negative. Person balances are never added to the money totals on Home.
+13. Money exchanged with a person is a zero-sum transfer between your money account and the person, tagged with a debt action:
+
+| Action    | Your account | Person   | Meaning                               |
+| --------- | ------------ | -------- | ------------------------------------- |
+| `lend`    | − amount     | + amount | You gave money; they owe you more     |
+| `repay`   | − amount     | + amount | You returned money you owed           |
+| `borrow`  | + amount     | − amount | You received money; you owe them more |
+| `collect` | + amount     | − amount | They returned money they owed         |
+
+14. Debts are excluded from income and expense reports, like other transfers. A debt must be between exactly one person and one of your money accounts, in one currency.
+15. An expense may be recorded on a person account ("someone else paid"): it counts as spending and lowers their balance, so you owe them. Income on a person account ("not received yet") counts as income and raises their balance. Forgiving a debt is recorded the same way, as an expense or income on the person.
+16. A starting balance for a person is an `opening` entry on their account and is excluded from reports.
+17. A statement of account for a person and currency lists every active line in date order with a running balance. Lines before the period start form the opening balance; the closing balance equals the person's ledger balance at the end of the period.

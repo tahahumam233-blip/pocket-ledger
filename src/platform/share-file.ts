@@ -1,5 +1,6 @@
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import { Share } from 'react-native';
 
 /**
  * Writes text to a temporary file and opens the system share sheet.
@@ -29,4 +30,10 @@ export async function shareTextFile(
           : undefined,
   });
   return true;
+}
+
+/** Opens the share sheet with plain text, for example a statement for WhatsApp or Mail. */
+export async function shareText(title: string, message: string): Promise<boolean> {
+  const result = await Share.share({ title, message });
+  return result.action === Share.sharedAction;
 }

@@ -26,6 +26,7 @@ One person who manages cash and bank money in two currencies and wants a calm da
 - Browse and search entries by month, type, currency, category and account.
 - See monthly reports by category and a six-month trend.
 - Reconcile an account to the amount actually counted.
+- Track money lent to and borrowed from people: lend, borrow, get paid back, pay back, record what someone paid for you, settle in full, and see a statement of account per person that can be shared as text or CSV.
 - Receive a nightly reminder.
 - Export entries as CSV; optionally lock the app with biometrics.
 

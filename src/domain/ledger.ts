@@ -4,16 +4,41 @@ import { isMinorUnits, type MinorUnits } from './money';
 
 export type AccountKind = 'safe' | 'pocket' | 'bank' | 'other';
 
+/**
+ * Money accounts hold your own money (safe, pocket, bank). Person accounts
+ * track what someone owes you (positive balance) or what you owe them
+ * (negative balance).
+ */
+export type AccountClass = 'money' | 'person';
+
 export type Account = {
   id: string;
   name: string;
   kind: AccountKind;
+  accountClass: AccountClass;
   icon: string;
   color: string;
   sortOrder: number;
+  /** Free text, used for people (phone number, how you know them). */
+  note: string;
+  /** For people: the date the balance is expected to be settled. */
+  dueDate: IsoDate | null;
   createdAt: string;
   archivedAt: string | null;
 };
+
+/**
+ * What happened with a person. Lend and repay move money from your account
+ * to the person; borrow and collect move money from the person to your account.
+ */
+export type DebtAction = 'lend' | 'borrow' | 'collect' | 'repay';
+
+export const DEBT_ACTIONS: readonly DebtAction[] = ['lend', 'borrow', 'collect', 'repay'];
+
+/** True when the action moves money out of your account towards the person. */
+export function debtGoesToPerson(action: DebtAction): boolean {
+  return action === 'lend' || action === 'repay';
+}
 
 export type CategoryKind = 'expense' | 'income';
 
@@ -46,6 +71,8 @@ export type LineInput = Omit<LedgerLine, 'id' | 'transactionId'>;
 export type Transaction = {
   id: string;
   kind: TransactionKind;
+  /** Set on transfers between your account and a person. */
+  debtAction: DebtAction | null;
   postedDate: IsoDate;
   categoryId: string | null;
   note: string;
@@ -95,6 +122,19 @@ export type TransferDraft = {
   note: string;
 };
 
+/** Money exchanged with a person: lending, borrowing and paying back. */
+export type DebtDraft = {
+  kind: 'debt';
+  action: DebtAction;
+  personId: string;
+  /** Your money account the cash comes from or goes into. */
+  accountId: string;
+  currency: CurrencyCode;
+  amountMinor: MinorUnits;
+  postedDate: IsoDate;
+  note: string;
+};
+
 /** Signed system entries: opening balances and reconciliation adjustments. */
 export type SignedDraft = {
   kind: 'opening' | 'adjustment';
@@ -105,7 +145,7 @@ export type SignedDraft = {
   note: string;
 };
 
-export type TransactionDraft = ExpenseDraft | IncomeDraft | TransferDraft | SignedDraft;
+export type TransactionDraft = ExpenseDraft | IncomeDraft | TransferDraft | DebtDraft | SignedDraft;
 
 export type DraftErrorCode =
   | 'amount_required'
@@ -122,6 +162,10 @@ export type DraftErrorCode =
   | 'category_archived'
   | 'currency_unknown'
   | 'exchange_amount_required'
+  | 'person_required'
+  | 'not_a_person'
+  | 'person_not_allowed'
+  | 'debt_action_invalid'
   | 'date_invalid'
   | 'note_too_long';
 
@@ -134,7 +178,15 @@ export type DraftContext = {
 };
 
 export type DraftValidation =
-  { ok: true; lines: LineInput[]; categoryId: string | null } | { ok: false; errors: DraftError[] };
+  | {
+      ok: true;
+      lines: LineInput[];
+      categoryId: string | null;
+      /** The kind stored in the ledger; debts are stored as transfers. */
+      kind: TransactionKind;
+      debtAction: DebtAction | null;
+    }
+  | { ok: false; errors: DraftError[] };
 
 export class LedgerError extends Error {
   readonly errors: DraftError[];
@@ -267,6 +319,8 @@ export function validateDraft(draft: TransactionDraft, context: DraftContext): D
       const signed = draft.kind === 'expense' ? -draft.amountMinor : draft.amountMinor;
       return {
         ok: true,
+        kind: draft.kind,
+        debtAction: null,
         categoryId: draft.categoryId,
         lines: [
           {
@@ -279,8 +333,20 @@ export function validateDraft(draft: TransactionDraft, context: DraftContext): D
       };
     }
     case 'transfer': {
-      checkAccount(context, draft.fromAccountId, 'fromAccountId', errors);
-      checkAccount(context, draft.toAccountId, 'toAccountId', errors);
+      const from = checkAccount(context, draft.fromAccountId, 'fromAccountId', errors);
+      const to = checkAccount(context, draft.toAccountId, 'toAccountId', errors);
+      for (const [account, field] of [
+        [from, 'fromAccountId'],
+        [to, 'toAccountId'],
+      ] as const) {
+        if (account?.accountClass === 'person') {
+          errors.push({
+            field,
+            code: 'person_not_allowed',
+            message: `Use Debt to move money to or from ${account.name}.`,
+          });
+        }
+      }
       if (draft.fromAccountId && draft.fromAccountId === draft.toAccountId) {
         errors.push({
           field: 'toAccountId',
@@ -309,6 +375,8 @@ export function validateDraft(draft: TransactionDraft, context: DraftContext): D
       if (errors.length > 0) return { ok: false, errors };
       return {
         ok: true,
+        kind: 'transfer',
+        debtAction: null,
         categoryId: null,
         lines: [
           {
@@ -326,6 +394,54 @@ export function validateDraft(draft: TransactionDraft, context: DraftContext): D
         ],
       };
     }
+    case 'debt': {
+      if (!DEBT_ACTIONS.includes(draft.action)) {
+        errors.push({
+          field: 'action',
+          code: 'debt_action_invalid',
+          message: 'Choose what happened.',
+        });
+      }
+      if (!draft.personId) {
+        errors.push({ field: 'personId', code: 'person_required', message: 'Choose a person.' });
+      } else {
+        const person = checkAccount(context, draft.personId, 'personId', errors);
+        if (person && person.accountClass !== 'person') {
+          errors.push({ field: 'personId', code: 'not_a_person', message: 'Choose a person.' });
+        }
+      }
+      const account = checkAccount(context, draft.accountId, 'accountId', errors);
+      if (account?.accountClass === 'person') {
+        errors.push({
+          field: 'accountId',
+          code: 'person_not_allowed',
+          message: 'Choose your own account for the money.',
+        });
+      }
+      checkCurrency(context, draft.currency, 'currency', errors);
+      checkPositiveAmount(draft.amountMinor, 'amountMinor', errors);
+      if (errors.length > 0) return { ok: false, errors };
+      const toPerson = debtGoesToPerson(draft.action);
+      const moneyLine: LineInput = {
+        accountId: draft.accountId,
+        currency: draft.currency,
+        amountMinor: toPerson ? -draft.amountMinor : draft.amountMinor,
+        role: toPerson ? 'source' : 'destination',
+      };
+      const personLine: LineInput = {
+        accountId: draft.personId,
+        currency: draft.currency,
+        amountMinor: toPerson ? draft.amountMinor : -draft.amountMinor,
+        role: toPerson ? 'destination' : 'source',
+      };
+      return {
+        ok: true,
+        kind: 'transfer',
+        debtAction: draft.action,
+        categoryId: null,
+        lines: toPerson ? [moneyLine, personLine] : [personLine, moneyLine],
+      };
+    }
     case 'opening':
     case 'adjustment': {
       checkAccount(context, draft.accountId, 'accountId', errors);
@@ -334,6 +450,8 @@ export function validateDraft(draft: TransactionDraft, context: DraftContext): D
       if (errors.length > 0) return { ok: false, errors };
       return {
         ok: true,
+        kind: draft.kind,
+        debtAction: null,
         categoryId: null,
         lines: [
           {
@@ -376,6 +494,24 @@ export function draftFromTransaction(transaction: TransactionWithLines): Transac
       currency: line.currency,
       amountMinor: Math.abs(line.amountMinor),
       categoryId: transaction.categoryId,
+      postedDate,
+      note,
+    };
+  }
+  if (kind === 'transfer' && transaction.debtAction) {
+    const source = lines.find((line) => line.role === 'source');
+    const destination = lines.find((line) => line.role === 'destination');
+    if (!source || !destination) return null;
+    const toPerson = debtGoesToPerson(transaction.debtAction);
+    const personLine = toPerson ? destination : source;
+    const moneyLine = toPerson ? source : destination;
+    return {
+      kind: 'debt',
+      action: transaction.debtAction,
+      personId: personLine.accountId,
+      accountId: moneyLine.accountId,
+      currency: personLine.currency,
+      amountMinor: Math.abs(personLine.amountMinor),
       postedDate,
       note,
     };

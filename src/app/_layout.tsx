@@ -114,6 +114,9 @@ function RootNavigator() {
           <Stack.Screen name="receipt/[id]" />
           <Stack.Screen name="account/[id]" />
           <Stack.Screen name="account/adjust" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="people" />
+          <Stack.Screen name="person/[id]" />
+          <Stack.Screen name="person/edit/[id]" options={{ presentation: 'modal' }} />
           <Stack.Screen name="settings/index" />
           <Stack.Screen name="settings/currencies" />
           <Stack.Screen name="settings/reminder" />

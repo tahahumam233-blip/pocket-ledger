@@ -6,6 +6,9 @@ export type AccountRow = {
   id: string;
   name: string;
   kind: Account['kind'];
+  account_class: Account['accountClass'];
+  note: string;
+  due_date: string | null;
   icon: string;
   color: string;
   sort_order: number;
@@ -27,6 +30,7 @@ export type CategoryRow = {
 export type TransactionRow = {
   id: string;
   kind: Transaction['kind'];
+  debt_action: Transaction['debtAction'];
   posted_date: string;
   category_id: string | null;
   note: string;
@@ -60,6 +64,9 @@ export function mapAccount(row: AccountRow): Account {
     id: row.id,
     name: row.name,
     kind: row.kind,
+    accountClass: row.account_class,
+    note: row.note,
+    dueDate: row.due_date,
     icon: row.icon,
     color: row.color,
     sortOrder: row.sort_order,
@@ -85,6 +92,7 @@ export function mapTransaction(row: TransactionRow): Transaction {
   return {
     id: row.id,
     kind: row.kind,
+    debtAction: row.debt_action ?? null,
     postedDate: row.posted_date,
     categoryId: row.category_id,
     note: row.note,

@@ -69,7 +69,8 @@ export function createLedgerService({ repos, clock, newId }: LedgerServiceDeps) 
       const timestamp = options.createdAt ?? nowTimestamp(now());
       const transaction: Transaction = {
         id: id('txn'),
-        kind: draft.kind,
+        kind: validated.kind,
+        debtAction: validated.debtAction,
         postedDate: draft.postedDate,
         categoryId: validated.categoryId,
         note: draft.note.trim(),
@@ -97,7 +98,8 @@ export function createLedgerService({ repos, clock, newId }: LedgerServiceDeps) 
       const lines = buildLines(transactionId, validated.lines);
       const header = {
         id: transactionId,
-        kind: draft.kind,
+        kind: validated.kind,
+        debtAction: validated.debtAction,
         postedDate: draft.postedDate,
         categoryId: validated.categoryId,
         note: draft.note.trim(),

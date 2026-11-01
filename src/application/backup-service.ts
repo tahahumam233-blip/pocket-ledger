@@ -22,12 +22,17 @@ const TABLES = [
       id: 'text',
       name: 'text',
       kind: 'text',
+      account_class: 'text',
       icon: 'text',
       color: 'text',
       sort_order: 'integer',
+      note: 'text',
+      due_date: 'text?',
       created_at: 'text',
       archived_at: 'text?',
     },
+    // Added in schema version 2; older backups get these values.
+    defaults: { account_class: 'money', note: '', due_date: null },
   },
   {
     name: 'categories',
@@ -47,6 +52,7 @@ const TABLES = [
     columns: {
       id: 'text',
       kind: 'text',
+      debt_action: 'text?',
       posted_date: 'text',
       category_id: 'text?',
       note: 'text',
@@ -54,6 +60,7 @@ const TABLES = [
       updated_at: 'text',
       deleted_at: 'text?',
     },
+    defaults: { debt_action: null },
   },
   {
     name: 'ledger_lines',
@@ -79,8 +86,13 @@ const TABLES = [
       deleted_at: 'text?',
     },
   },
-] as const;
+] as const satisfies readonly {
+  name: string;
+  columns: Record<string, ColumnTypeName>;
+  defaults?: Record<string, SqlValue>;
+}[];
 
+type ColumnTypeName = 'text' | 'text?' | 'integer' | 'integer?';
 type TableName = (typeof TABLES)[number]['name'];
 type ColumnType = 'text' | 'text?' | 'integer' | 'integer?';
 
@@ -151,8 +163,13 @@ export function parseBackup(text: string): BackupFile {
       if (typeof row !== 'object' || row === null) {
         throw new BackupError(`The backup has a damaged ${table.name} entry.`);
       }
+      const record = row as Record<string, unknown>;
+      const defaults: Record<string, SqlValue> = 'defaults' in table ? table.defaults : {};
+      for (const [column, value] of Object.entries(defaults)) {
+        if (record[column] === undefined) record[column] = value;
+      }
       for (const [column, type] of Object.entries(table.columns) as [string, ColumnType][]) {
-        if (!checkValue((row as Record<string, unknown>)[column], type)) {
+        if (!checkValue(record[column], type)) {
           throw new BackupError(`The backup has a damaged ${table.name} entry.`);
         }
       }

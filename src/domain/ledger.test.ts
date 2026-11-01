@@ -11,13 +11,20 @@ import {
   validateDraft,
 } from './ledger';
 
-const account = (id: string, archivedAt: string | null = null): Account => ({
+const account = (
+  id: string,
+  archivedAt: string | null = null,
+  accountClass: Account['accountClass'] = 'money',
+): Account => ({
   id,
   name: id,
-  kind: 'pocket',
+  kind: accountClass === 'person' ? 'other' : 'pocket',
+  accountClass,
   icon: 'wallet',
   color: '#000',
   sortOrder: 0,
+  note: '',
+  dueDate: null,
   createdAt: '2026-01-01T00:00:00.000Z',
   archivedAt,
 });
@@ -42,6 +49,7 @@ const context: DraftContext = {
     ['pocket', account('pocket')],
     ['bank', account('bank')],
     ['old', account('old', '2026-01-02T00:00:00.000Z')],
+    ['ali', account('ali', null, 'person')],
   ]),
   categories: new Map([
     ['food', category('food', 'expense')],
@@ -67,6 +75,8 @@ describe('validateDraft', () => {
     );
     expect(expense).toEqual({
       ok: true,
+      kind: 'expense',
+      debtAction: null,
       categoryId: 'food',
       lines: [{ accountId: 'pocket', currency: 'USD', amountMinor: -1250, role: 'main' }],
     });
@@ -251,6 +261,7 @@ describe('draftFromTransaction', () => {
       kind: 'expense',
       postedDate: '2026-10-31',
       categoryId: 'food',
+      debtAction: null,
       note: 'Lunch',
       createdAt: '',
       updatedAt: '',
@@ -323,5 +334,191 @@ describe('computeBalances', () => {
     expect(balances.get('pocket')?.get('IQD')).toBe(500000);
     expect(balances.get('bank')?.get('USD')).toBe(90000);
     expect(balances.get('bank')?.get('IQD')).toBeUndefined();
+  });
+});
+
+describe('debts', () => {
+  const base = { postedDate: '2026-10-31', note: '' };
+
+  it('lending moves money from your account to the person and sums to zero', () => {
+    const result = validateDraft(
+      {
+        kind: 'debt',
+        action: 'lend',
+        personId: 'ali',
+        accountId: 'pocket',
+        currency: 'USD',
+        amountMinor: 10000,
+        ...base,
+      },
+      context,
+    );
+    expect(result).toEqual({
+      ok: true,
+      kind: 'transfer',
+      debtAction: 'lend',
+      categoryId: null,
+      lines: [
+        { accountId: 'pocket', currency: 'USD', amountMinor: -10000, role: 'source' },
+        { accountId: 'ali', currency: 'USD', amountMinor: 10000, role: 'destination' },
+      ],
+    });
+    if (result.ok) expect(isBalancedTransfer(result.lines)).toBe(true);
+  });
+
+  it('borrowing and collecting move money from the person into your account', () => {
+    for (const action of ['borrow', 'collect'] as const) {
+      const result = validateDraft(
+        {
+          kind: 'debt',
+          action,
+          personId: 'ali',
+          accountId: 'bank',
+          currency: 'IQD',
+          amountMinor: 50000,
+          ...base,
+        },
+        context,
+      );
+      expect(result.ok && result.lines).toEqual([
+        { accountId: 'ali', currency: 'IQD', amountMinor: -50000, role: 'source' },
+        { accountId: 'bank', currency: 'IQD', amountMinor: 50000, role: 'destination' },
+      ]);
+    }
+    const repay = validateDraft(
+      {
+        kind: 'debt',
+        action: 'repay',
+        personId: 'ali',
+        accountId: 'bank',
+        currency: 'IQD',
+        amountMinor: 50000,
+        ...base,
+      },
+      context,
+    );
+    expect(repay.ok && repay.lines[1]).toEqual({
+      accountId: 'ali',
+      currency: 'IQD',
+      amountMinor: 50000,
+      role: 'destination',
+    });
+  });
+
+  it('rejects debts that are not between a person and your own account', () => {
+    const codes = (draft: Parameters<typeof validateDraft>[0]) => {
+      const result = validateDraft(draft, context);
+      return result.ok ? [] : result.errors.map((error) => error.code);
+    };
+    const debt = {
+      kind: 'debt' as const,
+      action: 'lend' as const,
+      currency: 'USD',
+      amountMinor: 100,
+      ...base,
+    };
+    expect(codes({ ...debt, personId: 'pocket', accountId: 'bank' })).toContain('not_a_person');
+    expect(codes({ ...debt, personId: 'ali', accountId: 'ali' })).toContain('person_not_allowed');
+    expect(codes({ ...debt, personId: '', accountId: 'bank' })).toContain('person_required');
+    expect(codes({ ...debt, personId: 'ali', accountId: 'bank', amountMinor: 0 })).toContain(
+      'amount_not_positive',
+    );
+    expect(codes({ ...debt, personId: 'ali', accountId: 'bank', currency: 'EUR' })).toContain(
+      'currency_unknown',
+    );
+    expect(
+      codes({ ...debt, action: 'gift' as never, personId: 'ali', accountId: 'bank' }),
+    ).toContain('debt_action_invalid');
+  });
+
+  it('keeps plain transfers between your own accounts only', () => {
+    const result = validateDraft(
+      {
+        kind: 'transfer',
+        fromAccountId: 'pocket',
+        toAccountId: 'ali',
+        currency: 'USD',
+        amountMinor: 100,
+        ...base,
+      },
+      context,
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok)
+      expect(result.errors.map((error) => error.code)).toEqual(['person_not_allowed']);
+  });
+
+  it('allows an expense paid by someone else and income they still owe you', () => {
+    const paidByAli = validateDraft(
+      {
+        kind: 'expense',
+        accountId: 'ali',
+        currency: 'USD',
+        amountMinor: 2500,
+        categoryId: 'food',
+        ...base,
+      },
+      context,
+    );
+    expect(paidByAli.ok && paidByAli.lines[0]).toEqual({
+      accountId: 'ali',
+      currency: 'USD',
+      amountMinor: -2500,
+      role: 'main',
+    });
+    const owedToYou = validateDraft(
+      {
+        kind: 'income',
+        accountId: 'ali',
+        currency: 'USD',
+        amountMinor: 7000,
+        categoryId: 'salary',
+        ...base,
+      },
+      context,
+    );
+    expect(owedToYou.ok && owedToYou.kind).toBe('income');
+  });
+
+  it('round-trips a stored debt back into an editable draft', () => {
+    const stored: TransactionWithLines = {
+      id: 't9',
+      kind: 'transfer',
+      debtAction: 'borrow',
+      postedDate: '2026-10-20',
+      categoryId: null,
+      note: 'Car repair',
+      createdAt: '',
+      updatedAt: '',
+      deletedAt: null,
+      lines: [
+        {
+          id: 'a',
+          transactionId: 't9',
+          accountId: 'ali',
+          currency: 'USD',
+          amountMinor: -30000,
+          role: 'source',
+        },
+        {
+          id: 'b',
+          transactionId: 't9',
+          accountId: 'bank',
+          currency: 'USD',
+          amountMinor: 30000,
+          role: 'destination',
+        },
+      ],
+    };
+    expect(draftFromTransaction(stored)).toEqual({
+      kind: 'debt',
+      action: 'borrow',
+      personId: 'ali',
+      accountId: 'bank',
+      currency: 'USD',
+      amountMinor: 30000,
+      postedDate: '2026-10-20',
+      note: 'Car repair',
+    });
   });
 });

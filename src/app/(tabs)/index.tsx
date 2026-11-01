@@ -16,6 +16,8 @@ import { TransactionRow } from '@/components/transaction-row';
 import { useTheme } from '@/design';
 import { formatLongDate, formatMoney } from '@/domain';
 import { useBackup } from '@/features/backup/use-backup';
+import { DebtSummary } from '@/features/people/debt-summary';
+import { PersonRow } from '@/features/people/person-row';
 import { useQuickCapture } from '@/features/receipts/use-quick-capture';
 import { useLedgerStore } from '@/state/ledger-store';
 import { buildLookup } from '@/utils/transaction-presenter';
@@ -46,9 +48,17 @@ export default function HomeScreen() {
     today,
   } = snapshot;
   const [primary, ...others] = settings.currencies;
-  const lookup = buildLookup(snapshot.accounts, snapshot.categories);
+  const lookup = buildLookup(snapshot.allAccounts, snapshot.categories);
   const hour = new Date().getHours();
   const suggestBackup = Platform.OS === 'web' && snapshot.backupDue;
+  const primaryCurrency = settings.currencies[0] ?? '';
+  const topPeople = [...snapshot.peopleBalances]
+    .sort(
+      (a, b) =>
+        Math.abs(b.balances[primaryCurrency] ?? 0) - Math.abs(a.balances[primaryCurrency] ?? 0) ||
+        a.account.name.localeCompare(b.account.name),
+    )
+    .slice(0, 3);
 
   const spendLine = (totalsByCurrency: Partial<Record<string, number>>) => {
     const parts = settings.currencies
@@ -71,10 +81,10 @@ export default function HomeScreen() {
       onPress: () => router.push({ pathname: '/transaction/new', params: { kind: 'income' } }),
     },
     {
-      label: 'Transfer',
-      icon: 'swap-horizontal',
+      label: 'Lend/Borrow',
+      icon: 'people',
       color: theme.colors.transfer,
-      onPress: () => router.push({ pathname: '/transaction/new', params: { kind: 'transfer' } }),
+      onPress: () => router.push({ pathname: '/transaction/new', params: { kind: 'debt' } }),
     },
     {
       label: 'Receipt',
@@ -239,6 +249,54 @@ export default function HomeScreen() {
             />
           ))}
         </ScrollView>
+      </View>
+
+      <View style={styles.section}>
+        <SectionHeader
+          title="People"
+          actionLabel={snapshot.people.length > 0 ? 'See all' : undefined}
+          onAction={() => router.push('/people')}
+        />
+        {snapshot.people.length === 0 ? (
+          <Card
+            onPress={() => router.push('/people')}
+            accessibilityLabel="Track lending and borrowing"
+          >
+            <View style={styles.bannerRow}>
+              <IconBadge icon="people" color={theme.colors.transfer} size={40} outline />
+              <View style={styles.bannerText}>
+                <AppText variant="bodyStrong">Lend or borrow money?</AppText>
+                <AppText variant="caption" tone="muted">
+                  Track who owes you and whom you owe, with a statement for each person.
+                </AppText>
+              </View>
+              <Icon name="chevron-forward" size={18} color={theme.colors.textMuted} />
+            </View>
+          </Card>
+        ) : (
+          <>
+            <DebtSummary
+              totals={snapshot.debts}
+              currencies={settings.currencies}
+              onPress={() => router.push('/people')}
+            />
+            <Card padded={false}>
+              {topPeople.map((entry, index) => (
+                <PersonRow
+                  key={entry.account.id}
+                  person={entry.account}
+                  balances={entry.balances}
+                  currencies={settings.currencies}
+                  today={today}
+                  last={index === topPeople.length - 1}
+                  onPress={() =>
+                    router.push({ pathname: '/person/[id]', params: { id: entry.account.id } })
+                  }
+                />
+              ))}
+            </Card>
+          </>
+        )}
       </View>
 
       <View style={styles.section}>

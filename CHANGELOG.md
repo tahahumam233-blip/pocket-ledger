@@ -27,6 +27,15 @@ First complete version, rebuilt from scratch on Expo SDK 58.
 - In-app confirmation dialogs, native iPhone date and time wheels, share sheet for exports.
 - 90 automated tests, including the full service suite on both SQLite engines, and a 23-step browser check of the built web app.
 
+### Added: people and debts
+
+- People you lend to and borrow from, each with a balance per currency (owes you or you owe), a note and an optional settle-by date with overdue warning.
+- Debt entries: lend, borrow, get paid back and pay back, from the add form or "I gave / I got" on a person; balance preview before saving; settle in full.
+- Expenses someone else paid for you and income not yet received, recorded on the person.
+- Statement of account per person and currency: period filter, opening balance, You gave / You got, running balance, totals and closing balance; share as text or CSV.
+- People screen with totals, search and filters; People card and Lend/Borrow quick action on Home; Debts filter and person search in Activity.
+- Database version 2 (additive), with existing ledgers and older backups upgraded automatically; 132 automated tests and a 20-step browser check for debts.
+
 ### Removed
 
 - Android: build profiles, adaptive and notification icons, scripts and code paths. The app targets iPhone only.

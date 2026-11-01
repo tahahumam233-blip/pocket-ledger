@@ -1,8 +1,10 @@
 import type { BalanceRow, Receipt, Repositories } from '@/data';
 import {
   type Account,
+  buildStatement,
   type Category,
   currentYearMonth,
+  type DebtTotals,
   type CurrencyCode,
   expenseTotalsByCurrency,
   type IsoDate,
@@ -13,6 +15,8 @@ import {
   type PeriodSummary,
   type ReportLine,
   shiftYearMonth,
+  type Statement,
+  summarizeDebts,
   summarizePeriod,
   todayIsoDate,
   type TransactionWithLines,
@@ -29,10 +33,18 @@ export type AccountBalances = {
 
 export type HomeSnapshot = {
   settings: AppSettings;
+  /** Active money accounts (safe, pocket, bank…). */
   accounts: Account[];
+  /** Active people you lend to or borrow from. */
+  people: Account[];
+  /** Every account including people and archived ones, for naming old entries. */
+  allAccounts: Account[];
   categories: Category[];
   accountBalances: AccountBalances[];
-  /** Net worth per currency across all active accounts. */
+  peopleBalances: AccountBalances[];
+  /** What people owe you and what you owe them, per currency. */
+  debts: DebtTotals;
+  /** Money you hold per currency across active money accounts. Debts are not included. */
   totals: Partial<Record<CurrencyCode, MinorUnits>>;
   spentToday: Partial<Record<CurrencyCode, MinorUnits>>;
   spentThisMonth: Partial<Record<CurrencyCode, MinorUnits>>;
@@ -101,7 +113,7 @@ export function createQueries(repos: Repositories, clock?: Clock) {
       const month = monthRange(currentYearMonth(now()));
       const [
         settingsRecord,
-        accounts,
+        allAccounts,
         categories,
         balanceRows,
         monthLines,
@@ -109,7 +121,7 @@ export function createQueries(repos: Repositories, clock?: Clock) {
         pendingReceipts,
       ] = await Promise.all([
         repos.settings.getAll(),
-        repos.accounts.list(),
+        repos.accounts.list({ includeArchived: true }),
         repos.categories.list(),
         repos.reports.balances(),
         repos.reports.reportLines(month.start, month.end),
@@ -117,13 +129,24 @@ export function createQueries(repos: Repositories, clock?: Clock) {
         repos.receipts.countPending(),
       ]);
       const settings = parseSettings(settingsRecord);
+      const accounts = allAccounts.filter(
+        (account) => account.accountClass === 'money' && !account.archivedAt,
+      );
+      const people = allAccounts.filter(
+        (account) => account.accountClass === 'person' && !account.archivedAt,
+      );
       const accountBalances = groupBalances(accounts, balanceRows);
+      const peopleBalances = groupBalances(people, balanceRows);
       const todayLines = monthLines.filter((line) => line.postedDate === today);
       return {
         settings,
         accounts,
+        people,
+        allAccounts,
         categories,
         accountBalances,
+        peopleBalances,
+        debts: summarizeDebts(peopleBalances),
         totals: totalsFor(accountBalances, settings.currencies),
         spentToday: toRecord(expenseTotalsByCurrency(todayLines)),
         spentThisMonth: toRecord(expenseTotalsByCurrency(monthLines)),
@@ -132,6 +155,25 @@ export function createQueries(repos: Repositories, clock?: Clock) {
         today,
         backupDue: isBackupDue(accounts, settings.lastBackupAt, now()),
       };
+    },
+
+    /** People with their balances; archived people only when asked. */
+    async people(options: { includeArchived?: boolean } = {}): Promise<AccountBalances[]> {
+      const [people, balanceRows] = await Promise.all([
+        repos.accounts.list({ accountClass: 'person', includeArchived: options.includeArchived }),
+        repos.reports.balances(),
+      ]);
+      return groupBalances(people, balanceRows);
+    },
+
+    /** Statement of account for one person and currency over an optional date range. */
+    async personStatement(
+      personId: string,
+      currency: CurrencyCode,
+      range: { from?: IsoDate | null; to?: IsoDate | null } = {},
+    ): Promise<Statement> {
+      const lines = await repos.reports.statementLines(personId, currency);
+      return buildStatement(lines, currency, range);
     },
 
     async monthReport(month: YearMonth, currency: CurrencyCode): Promise<MonthReport> {

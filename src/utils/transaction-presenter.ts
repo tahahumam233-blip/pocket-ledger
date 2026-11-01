@@ -1,5 +1,12 @@
 import type { ThemeColors } from '@/design';
-import type { Account, Category, LedgerLine, TransactionWithLines } from '@/domain';
+import {
+  type Account,
+  type Category,
+  DEBT_ACTION_INFO,
+  debtGoesToPerson,
+  type LedgerLine,
+  type TransactionWithLines,
+} from '@/domain';
 
 export type TransactionPresentation = {
   title: string;
@@ -9,6 +16,10 @@ export type TransactionPresentation = {
   /** The amounts to show on the right; exchanges carry two. */
   amounts: { amountMinor: number; currency: string }[];
   kindLabel: string;
+  /** Debts show the signed movement of your own money, in neutral colours. */
+  neutral: boolean;
+  /** The person involved, for debts and entries paid by or owed by someone. */
+  person: Account | null;
 };
 
 export type Lookup = {
@@ -27,8 +38,16 @@ export const KIND_LABELS = {
   expense: 'Expense',
   income: 'Income',
   transfer: 'Transfer',
+  debt: 'Debt',
   opening: 'Opening balance',
   adjustment: 'Balance adjustment',
+} as const;
+
+const DEBT_TITLES = {
+  lend: (name: string) => `Lent to ${name}`,
+  borrow: (name: string) => `Borrowed from ${name}`,
+  collect: (name: string) => `${name} paid you back`,
+  repay: (name: string) => `Paid back ${name}`,
 } as const;
 
 function lineByRole(lines: LedgerLine[], role: LedgerLine['role']) {
@@ -42,6 +61,27 @@ export function presentTransaction(
 ): TransactionPresentation {
   const { kind, lines, note } = transaction;
   const kindLabel = KIND_LABELS[kind];
+
+  if (kind === 'transfer' && transaction.debtAction) {
+    const action = transaction.debtAction;
+    const toPerson = debtGoesToPerson(action);
+    const personLine = lineByRole(lines, toPerson ? 'destination' : 'source');
+    const moneyLine = lineByRole(lines, toPerson ? 'source' : 'destination');
+    const person = personLine ? (lookup.accounts.get(personLine.accountId) ?? null) : null;
+    const moneyAccount = moneyLine ? lookup.accounts.get(moneyLine.accountId) : undefined;
+    return {
+      title: DEBT_TITLES[action](person?.name ?? 'someone'),
+      subtitle: [moneyAccount?.name, note].filter(Boolean).join(' · '),
+      icon: DEBT_ACTION_INFO[action].icon,
+      color: person?.color ?? colors.transfer,
+      amounts: moneyLine
+        ? [{ amountMinor: moneyLine.amountMinor, currency: moneyLine.currency }]
+        : [],
+      kindLabel: DEBT_ACTION_INFO[action].label,
+      neutral: true,
+      person,
+    };
+  }
 
   if (kind === 'transfer') {
     const source = lineByRole(lines, 'source');
@@ -61,11 +101,14 @@ export function presentTransaction(
       color: colors.transfer,
       amounts: isExchange ? amounts : amounts.slice(1),
       kindLabel: isExchange ? 'Exchange' : 'Transfer',
+      neutral: true,
+      person: null,
     };
   }
 
   const line = lines[0];
   const account = line ? lookup.accounts.get(line.accountId) : undefined;
+  const person = account?.accountClass === 'person' ? account : null;
   const amounts = line ? [{ amountMinor: line.amountMinor, currency: line.currency }] : [];
 
   if (kind === 'opening' || kind === 'adjustment') {
@@ -78,19 +121,28 @@ export function presentTransaction(
       color: colors.textMuted,
       amounts,
       kindLabel,
+      neutral: Boolean(person),
+      person,
     };
   }
 
   const category = transaction.categoryId
     ? lookup.categories.get(transaction.categoryId)
     : undefined;
+  const via = person
+    ? kind === 'income'
+      ? `Owed by ${person.name}`
+      : `Paid by ${person.name}`
+    : account?.name;
   return {
     title: category?.name ?? (kind === 'income' ? 'Income' : 'Expense'),
-    subtitle: [account?.name, note].filter(Boolean).join(' · '),
+    subtitle: [via, note].filter(Boolean).join(' · '),
     icon: category?.icon ?? (kind === 'income' ? 'cash' : 'cart'),
     color: category?.color ?? (kind === 'income' ? colors.income : colors.expense),
     amounts,
     kindLabel,
+    neutral: false,
+    person,
   };
 }
 

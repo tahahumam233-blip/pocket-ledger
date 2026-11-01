@@ -53,3 +53,17 @@ Run on a real phone after changes to screens, storage or notifications.
 - [ ] Back up now offers Save to Files; the file appears in iCloud Drive.
 - [ ] Erase all data, then Restore from a backup on the first screen: entries and photos return.
 - [ ] Publish a change and reopen the app twice: the new version appears.
+
+## People and debts
+
+- [ ] Home shows "Lend or borrow money?" until the first person exists, then the People card with Owed to you and You owe.
+- [ ] Lend/Borrow: lend to a new person typed in the picker; the preview shows "Name owes you"; Pocket drops by the amount.
+- [ ] On the person, "I got" proposes "Got paid back" while they owe you; the balance drops.
+- [ ] "They paid for me" records an expense that appears in Reports and lowers what they owe.
+- [ ] "Settle in full" prefills the exact amount and leaves the balance Settled.
+- [ ] Statement: periods change the opening balance; totals and closing balance match the person balance; Share opens the share sheet with the text; Export CSV saves a file.
+- [ ] Add a person with "I owe them" and an amount; they appear under You owe.
+- [ ] A settle-by date shows "Due in N days" and turns red when overdue.
+- [ ] Removing a person with history archives them; Show archived lists them and Restore brings them back.
+- [ ] Activity: the Debts filter shows only debts; searching a person's name finds their entries.
+- [ ] Reports never count loans or repayments.

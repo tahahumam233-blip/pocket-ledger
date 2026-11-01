@@ -27,7 +27,9 @@ export function TransactionRow({
   const view = presentTransaction(transaction, lookup, theme.colors);
   const primaryAmount = view.amounts[view.amounts.length - 1];
   const secondaryAmount = view.amounts.length > 1 ? view.amounts[0] : undefined;
-  const isNeutral = transaction.kind === 'transfer';
+  // Plain transfers just move money; debts show which way your money moved.
+  const isTransfer = transaction.kind === 'transfer' && !transaction.debtAction;
+  const isNeutral = isTransfer || view.neutral;
 
   return (
     <PressableScale
@@ -61,9 +63,9 @@ export function TransactionRow({
           <MoneyText
             amountMinor={primaryAmount.amountMinor}
             currency={primaryAmount.currency}
-            signed={!isNeutral}
+            signed={!isTransfer}
             tone={isNeutral ? 'text' : undefined}
-            format={isNeutral ? { sign: 'never' } : undefined}
+            format={isTransfer ? { sign: 'never' } : undefined}
           />
         ) : null}
         {secondaryAmount ? (

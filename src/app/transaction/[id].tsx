@@ -48,7 +48,7 @@ export default function TransactionDetailScreen() {
     );
   }
 
-  const lookup = buildLookup(snapshot?.accounts ?? [], snapshot?.categories ?? []);
+  const lookup = buildLookup(snapshot?.allAccounts ?? [], snapshot?.categories ?? []);
   const view = presentTransaction(transaction, lookup, theme.colors);
   const mainAmount = view.amounts[view.amounts.length - 1];
   const receipts = query.data.receipts;

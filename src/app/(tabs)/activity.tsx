@@ -27,13 +27,19 @@ import { useLedgerStore } from '@/state/ledger-store';
 import { useQuery } from '@/state/use-query';
 import { buildLookup, groupByDay } from '@/utils/transaction-presenter';
 
-type KindFilter = 'all' | 'expense' | 'income' | 'transfer';
+type KindFilter = 'all' | 'expense' | 'income' | 'transfer' | 'debt';
 
-const KIND_OPTIONS: { value: KindFilter; label: string; kinds?: TransactionKind[] }[] = [
+const KIND_OPTIONS: {
+  value: KindFilter;
+  label: string;
+  kinds?: TransactionKind[];
+  debts?: 'only' | 'exclude';
+}[] = [
   { value: 'all', label: 'All' },
   { value: 'expense', label: 'Expenses', kinds: ['expense'] },
   { value: 'income', label: 'Income', kinds: ['income'] },
-  { value: 'transfer', label: 'Transfers', kinds: ['transfer'] },
+  { value: 'transfer', label: 'Transfers', kinds: ['transfer'], debts: 'exclude' },
+  { value: 'debt', label: 'Debts', kinds: ['transfer'], debts: 'only' },
 ];
 
 function parseMonthParam(value: string | undefined): YearMonth {
@@ -73,13 +79,15 @@ export default function ActivityScreen() {
   const [accountId, setAccountId] = useState<string | null>(params.accountId ?? null);
 
   const range = monthRange(month);
-  const kinds = KIND_OPTIONS.find((option) => option.value === kind)?.kinds;
+  const kindOption = KIND_OPTIONS.find((option) => option.value === kind);
+  const kinds = kindOption?.kinds;
   const query = useQuery(
     (services) =>
       services.queries.transactions({
         dateFrom: range.start,
         dateTo: range.end,
         kinds,
+        debts: kindOption?.debts,
         currency: currency ?? undefined,
         categoryId: categoryId ?? undefined,
         accountId: accountId ?? undefined,
@@ -90,8 +98,8 @@ export default function ActivityScreen() {
   );
 
   const lookup = useMemo(
-    () => buildLookup(snapshot?.accounts ?? [], snapshot?.categories ?? []),
-    [snapshot?.accounts, snapshot?.categories],
+    () => buildLookup(snapshot?.allAccounts ?? [], snapshot?.categories ?? []),
+    [snapshot?.allAccounts, snapshot?.categories],
   );
   const transactions = useMemo(() => query.data ?? [], [query.data]);
   const sections = useMemo(
@@ -123,7 +131,7 @@ export default function ActivityScreen() {
         <TextField
           value={search}
           onChangeText={setSearch}
-          placeholder="Search notes and categories"
+          placeholder="Search notes, categories and people"
           autoCorrect={false}
           clearButtonMode="while-editing"
           returnKeyType="search"

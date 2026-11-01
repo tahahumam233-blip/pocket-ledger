@@ -19,7 +19,7 @@ export default function AccountsSettingsScreen() {
   const mutate = useLedgerStore((state) => state.mutate);
   const archived = useQuery(
     async (s) =>
-      (await s.repos.accounts.list({ includeArchived: true })).filter(
+      (await s.repos.accounts.list({ includeArchived: true, accountClass: 'money' })).filter(
         (account) => account.archivedAt,
       ),
     [],

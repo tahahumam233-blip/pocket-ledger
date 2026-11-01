@@ -1,16 +1,32 @@
-import type { Account } from '@/domain';
+import type { Account, AccountClass } from '@/domain';
 
 import { type AccountRow, mapAccount } from '../mappers';
 import type { SqlExecutor } from '../sql';
 
-const COLUMNS = 'id, name, kind, icon, color, sort_order, created_at, archived_at';
+const COLUMNS =
+  'id, name, kind, account_class, icon, color, sort_order, note, due_date, created_at, archived_at';
 
 export function createAccountsRepository(db: SqlExecutor) {
   return {
-    async list(options: { includeArchived?: boolean } = {}): Promise<Account[]> {
-      const where = options.includeArchived ? '' : 'WHERE archived_at IS NULL';
+    /** Lists accounts; pass `accountClass` to get only money accounts or only people. */
+    async list(
+      options: { includeArchived?: boolean; accountClass?: AccountClass } = {},
+    ): Promise<Account[]> {
+      const clauses: string[] = [];
+      const params: string[] = [];
+      if (!options.includeArchived) clauses.push('archived_at IS NULL');
+      if (options.accountClass) {
+        clauses.push('account_class = ?');
+        params.push(options.accountClass);
+      }
+      const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
+      const order =
+        options.accountClass === 'person'
+          ? 'ORDER BY name COLLATE NOCASE ASC'
+          : 'ORDER BY account_class ASC, sort_order ASC, created_at ASC';
       const rows = await db.all<AccountRow>(
-        `SELECT ${COLUMNS} FROM accounts ${where} ORDER BY sort_order ASC, created_at ASC`,
+        `SELECT ${COLUMNS} FROM accounts ${where} ${order}`,
+        params,
       );
       return rows.map(mapAccount);
     },
@@ -19,24 +35,40 @@ export function createAccountsRepository(db: SqlExecutor) {
       return row ? mapAccount(row) : null;
     },
     async insert(account: Account, executor: SqlExecutor = db): Promise<void> {
-      await executor.run(`INSERT INTO accounts (${COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [
-        account.id,
-        account.name,
-        account.kind,
-        account.icon,
-        account.color,
-        account.sortOrder,
-        account.createdAt,
-        account.archivedAt,
-      ]);
+      await executor.run(
+        `INSERT INTO accounts (${COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          account.id,
+          account.name,
+          account.kind,
+          account.accountClass,
+          account.icon,
+          account.color,
+          account.sortOrder,
+          account.note,
+          account.dueDate,
+          account.createdAt,
+          account.archivedAt,
+        ],
+      );
     },
     async update(
       id: string,
-      changes: Partial<Pick<Account, 'name' | 'kind' | 'icon' | 'color' | 'sortOrder'>>,
+      changes: Partial<
+        Pick<Account, 'name' | 'kind' | 'icon' | 'color' | 'sortOrder' | 'note' | 'dueDate'>
+      >,
       executor: SqlExecutor = db,
     ): Promise<void> {
       const assignments: string[] = [];
-      const params: (string | number)[] = [];
+      const params: (string | number | null)[] = [];
+      if (changes.note !== undefined) {
+        assignments.push('note = ?');
+        params.push(changes.note);
+      }
+      if (changes.dueDate !== undefined) {
+        assignments.push('due_date = ?');
+        params.push(changes.dueDate);
+      }
       if (changes.name !== undefined) {
         assignments.push('name = ?');
         params.push(changes.name);

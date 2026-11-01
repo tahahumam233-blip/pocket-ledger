@@ -13,6 +13,11 @@ Not started; recorded so nothing is forgotten.
 - Automated UI tests on device (Maestro) in addition to the web walkthrough.
 - Reports: weekday breakdown and per-account spending.
 - Purge of soft-deleted transactions older than a chosen age (repository support exists).
+- Settle a debt in the other currency (an exchange on the person's account).
+- Calendar alert for a person's "settle by" date in the web app.
+- Per-loan due dates and interest on loans.
+- A printable PDF statement of account.
+- Accounts and sync across devices (discussed; needs a decision on hosting and privacy).
 - Automated tests in Safari / WebKit for the web app (current end-to-end checks run in Chromium).
 - Optional encrypted backup files (password protected).
 - Web Push reminder as an alternative to the Calendar alert, if a small notification relay is ever acceptable.

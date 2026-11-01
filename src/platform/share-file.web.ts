@@ -64,3 +64,36 @@ export async function shareTextFile(
     return true;
   }
 }
+
+/**
+ * Web version: shares text through the iPhone share sheet (Messages, WhatsApp,
+ * Mail, Notes). Falls back to copying it when sharing is not available.
+ */
+export async function shareText(title: string, message: string): Promise<boolean> {
+  if (typeof navigator.share === 'function') {
+    try {
+      await navigator.share({ title, text: message });
+      return true;
+    } catch (error) {
+      if (isAbort(error)) return false;
+      if (!isNotAllowed(error)) throw error;
+      const again = await askConfirm({
+        title: `${title} is ready`,
+        message: 'Tap Share to choose where to send it.',
+        confirmLabel: 'Share',
+      });
+      if (!again) return false;
+      try {
+        await navigator.share({ title, text: message });
+        return true;
+      } catch (retryError) {
+        if (isAbort(retryError)) return false;
+      }
+    }
+  }
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(message);
+    return true;
+  }
+  throw new Error('Sharing is not available in this browser.');
+}

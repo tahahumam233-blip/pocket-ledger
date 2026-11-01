@@ -1,4 +1,10 @@
-import type { CsvTransactionRow, ReportLine, TransactionKind } from '@/domain';
+import type {
+  CsvTransactionRow,
+  DebtAction,
+  ReportLine,
+  StatementSourceLine,
+  TransactionKind,
+} from '@/domain';
 
 import type { SqlExecutor } from '../sql';
 
@@ -64,7 +70,8 @@ export function createReportsRepository(db: SqlExecutor) {
         receipts: number;
         created_at: string;
       }>(
-        `SELECT t.id AS transaction_id, t.posted_date, t.kind, a.name AS account, c.name AS category,
+        `SELECT t.id AS transaction_id, t.posted_date, COALESCE(t.debt_action, t.kind) AS kind,
+                a.name AS account, c.name AS category,
                 l.currency, l.amount_minor, t.note, t.created_at,
                 (SELECT COUNT(*) FROM receipts r WHERE r.transaction_id = t.id AND r.deleted_at IS NULL) AS receipts
          FROM ledger_lines l
@@ -85,6 +92,43 @@ export function createReportsRepository(db: SqlExecutor) {
         note: row.note,
         hasReceipt: row.receipts > 0,
         createdAt: row.created_at,
+      }));
+    },
+
+    /** Every active line on one account in one currency, oldest first, for a statement. */
+    async statementLines(accountId: string, currency: string): Promise<StatementSourceLine[]> {
+      const rows = await db.all<{
+        transaction_id: string;
+        posted_date: string;
+        created_at: string;
+        kind: TransactionKind;
+        debt_action: DebtAction | null;
+        amount_minor: number;
+        note: string;
+        category_name: string | null;
+        counter_account_name: string | null;
+      }>(
+        `SELECT t.id AS transaction_id, t.posted_date, t.created_at, t.kind, t.debt_action,
+                l.amount_minor, t.note, c.name AS category_name,
+                (SELECT a2.name FROM ledger_lines l2 JOIN accounts a2 ON a2.id = l2.account_id
+                 WHERE l2.transaction_id = t.id AND l2.id <> l.id LIMIT 1) AS counter_account_name
+         FROM ledger_lines l
+         JOIN transactions t ON t.id = l.transaction_id
+         LEFT JOIN categories c ON c.id = t.category_id
+         WHERE l.account_id = ? AND l.currency = ? AND t.deleted_at IS NULL
+         ORDER BY t.posted_date ASC, t.created_at ASC, t.id ASC`,
+        [accountId, currency],
+      );
+      return rows.map((row) => ({
+        transactionId: row.transaction_id,
+        postedDate: row.posted_date,
+        createdAt: row.created_at,
+        kind: row.kind,
+        debtAction: row.debt_action,
+        amountMinor: row.amount_minor,
+        note: row.note,
+        categoryName: row.category_name,
+        counterAccountName: row.counter_account_name,
       }));
     },
 

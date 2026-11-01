@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 
-import { initializeDatabase, type Repositories, type SqlDriver } from '@/data';
+import {
+  CURRENT_SCHEMA_VERSION,
+  initializeDatabase,
+  MIGRATIONS,
+  type Repositories,
+  type SqlDriver,
+} from '@/data';
 import { LedgerError } from '@/domain';
 import { createNodeSqliteDriver } from '@/test/node-sqlite-driver';
 import { createTestSqlJsDriver } from '@/test/sqljs-test-driver';
@@ -110,11 +116,11 @@ describe.each(DRIVERS)('with %s', (_name, makeDriver) => {
   describe('database setup', () => {
     it('migrates once and is idempotent', async () => {
       const version = await repos.driver.get<{ user_version: number }>('PRAGMA user_version');
-      expect(version?.user_version).toBe(1);
+      expect(version?.user_version).toBe(CURRENT_SCHEMA_VERSION);
       await initializeDatabase(repos.driver);
       expect(
         (await repos.driver.get<{ user_version: number }>('PRAGMA user_version'))?.user_version,
-      ).toBe(1);
+      ).toBe(CURRENT_SCHEMA_VERSION);
     });
   });
 
@@ -591,6 +597,306 @@ describe.each(DRIVERS)('with %s', (_name, makeDriver) => {
     });
   });
 
+  describe('people and debts', () => {
+    async function withPeople() {
+      const base = await onboard();
+      const ali = await services.setup.createPerson({ name: 'Ali', note: 'Cousin' });
+      const sara = await services.setup.createPerson({
+        name: 'Sara',
+        dueDate: '2026-11-15',
+        startingBalance: { currency: 'USD', amountMinor: -5000, postedDate: '2026-09-01' },
+      });
+      return { ...base, ali, sara };
+    }
+    const debt = (
+      action: 'lend' | 'borrow' | 'collect' | 'repay',
+      personId: string,
+      accountId: string,
+      amountMinor: number,
+      postedDate: string,
+      currency = 'USD',
+      note = '',
+    ) =>
+      services.ledger.createTransaction({
+        kind: 'debt',
+        action,
+        personId,
+        accountId,
+        currency,
+        amountMinor,
+        postedDate,
+        note,
+      });
+
+    it('lending and collecting move money between your account and the person', async () => {
+      const { pocket, bank, ali } = await withPeople();
+      await debt('lend', ali.id, pocket.id, 6000, '2026-10-02', 'USD', 'Rent help');
+      expect(await balance(pocket.id, 'USD')).toBe(4000);
+      expect(await balance(ali.id, 'USD')).toBe(6000);
+      await debt('collect', ali.id, bank.id, 2500, '2026-10-10');
+      expect(await balance(ali.id, 'USD')).toBe(3500);
+      expect(await balance(bank.id, 'USD')).toBe(2500);
+
+      const home = await services.queries.home();
+      expect(home.totals.USD).toBe(96500);
+      expect(home.debts.owedToYou).toEqual({ USD: 3500 });
+      expect(home.debts.youOwe).toEqual({ USD: 5000 });
+      expect(home.accounts.map((account) => account.name)).toEqual(['Safe', 'Pocket', 'Bank']);
+      expect(home.people.map((person) => person.name)).toEqual(['Ali', 'Sara']);
+    });
+
+    it('borrowing and paying back track what you owe', async () => {
+      const { safe, sara } = await withPeople();
+      expect(await balance(sara.id, 'USD')).toBe(-5000);
+      await debt('borrow', sara.id, safe.id, 20000, '2026-10-05');
+      expect(await balance(sara.id, 'USD')).toBe(-25000);
+      expect(await balance(safe.id, 'USD')).toBe(110000);
+      await debt('repay', sara.id, safe.id, 25000, '2026-10-20');
+      expect(await balance(sara.id, 'USD')).toBe(0);
+      expect((await services.queries.home()).debts.youOwe).toEqual({});
+    });
+
+    it('keeps debts out of income and spending, but counts expenses others paid for you', async () => {
+      const { pocket, ali, food } = await withPeople();
+      await debt('lend', ali.id, pocket.id, 6000, '2026-10-02');
+      await debt('collect', ali.id, pocket.id, 1000, '2026-10-03');
+      let report = await services.queries.monthReport({ year: 2026, month: 10 }, 'USD');
+      expect(report.summary.expense).toBe(0);
+      expect(report.summary.income).toBe(0);
+
+      await services.ledger.createTransaction({
+        kind: 'expense',
+        accountId: ali.id,
+        currency: 'USD',
+        amountMinor: 1500,
+        categoryId: food.id,
+        postedDate: '2026-10-04',
+        note: 'Ali paid for lunch',
+      });
+      report = await services.queries.monthReport({ year: 2026, month: 10 }, 'USD');
+      expect(report.summary.expense).toBe(1500);
+      expect(await balance(ali.id, 'USD')).toBe(3500);
+      expect(await balance(pocket.id, 'USD')).toBe(5000);
+    });
+
+    it('debts stay in their own currency and never mix', async () => {
+      const { safe, ali } = await withPeople();
+      await debt('lend', ali.id, safe.id, 250000, '2026-10-02', 'IQD');
+      await debt('lend', ali.id, safe.id, 1000, '2026-10-02', 'USD');
+      expect(await balance(ali.id, 'IQD')).toBe(250000);
+      expect(await balance(ali.id, 'USD')).toBe(1000);
+      const home = await services.queries.home();
+      expect(home.debts.owedToYou).toEqual({ IQD: 250000, USD: 1000 });
+      expect(home.totals.IQD).toBe(1750000);
+    });
+
+    it('builds a statement of account with an opening balance and running balance', async () => {
+      const { pocket, bank, ali, food } = await withPeople();
+      await debt('lend', ali.id, pocket.id, 5000, '2026-09-20');
+      await debt('lend', ali.id, pocket.id, 10000, '2026-10-02', 'USD', 'Car repair');
+      await debt('collect', ali.id, bank.id, 4000, '2026-10-10');
+      await services.ledger.createTransaction({
+        kind: 'expense',
+        accountId: ali.id,
+        currency: 'USD',
+        amountMinor: 2500,
+        categoryId: food.id,
+        postedDate: '2026-10-15',
+        note: '',
+      });
+      const statement = await services.queries.personStatement(ali.id, 'USD', {
+        from: '2026-10-01',
+        to: '2026-10-31',
+      });
+      expect(statement.openingMinor).toBe(5000);
+      expect(statement.entries.map((entry) => [entry.description, entry.balanceMinor])).toEqual([
+        ['Lent from Pocket', 15000],
+        ['Paid you back into Bank', 11000],
+        ['Paid for you: Food & Drink', 8500],
+      ]);
+      expect(statement.closingMinor).toBe(8500);
+      expect(statement.closingMinor).toBe(await balance(ali.id, 'USD'));
+
+      const all = await services.queries.personStatement(ali.id, 'USD');
+      expect(all.entries).toHaveLength(4);
+    });
+
+    it('soft deletion removes a debt from balances and statements until restored', async () => {
+      const { pocket, ali } = await withPeople();
+      const loan = await debt('lend', ali.id, pocket.id, 3000, '2026-10-02');
+      await services.ledger.deleteTransaction(loan.id);
+      expect(await balance(ali.id, 'USD')).toBe(0);
+      expect(await balance(pocket.id, 'USD')).toBe(10000);
+      expect((await services.queries.personStatement(ali.id, 'USD')).entries).toHaveLength(0);
+      await services.ledger.restoreTransaction(loan.id);
+      expect(await balance(ali.id, 'USD')).toBe(3000);
+    });
+
+    it('edits a debt atomically and can change its action', async () => {
+      const { pocket, bank, ali } = await withPeople();
+      const loan = await debt('lend', ali.id, pocket.id, 3000, '2026-10-02');
+      await services.ledger.updateTransaction(loan.id, {
+        kind: 'debt',
+        action: 'borrow',
+        personId: ali.id,
+        accountId: bank.id,
+        currency: 'USD',
+        amountMinor: 4000,
+        postedDate: '2026-10-03',
+        note: 'Actually borrowed',
+      });
+      expect(await balance(pocket.id, 'USD')).toBe(10000);
+      expect(await balance(bank.id, 'USD')).toBe(4000);
+      expect(await balance(ali.id, 'USD')).toBe(-4000);
+      const stored = await services.ledger.getTransaction(loan.id);
+      expect(stored?.debtAction).toBe('borrow');
+      expect(stored?.lines.map((line) => line.amountMinor).reduce((a, b) => a + b, 0)).toBe(0);
+    });
+
+    it('rejects debts with your own account as the person and transfers to people', async () => {
+      const { pocket, bank, ali } = await withPeople();
+      await expect(debt('lend', bank.id, pocket.id, 100, '2026-10-02')).rejects.toBeInstanceOf(
+        LedgerError,
+      );
+      await expect(
+        services.ledger.createTransaction({
+          kind: 'transfer',
+          fromAccountId: pocket.id,
+          toAccountId: ali.id,
+          currency: 'USD',
+          amountMinor: 100,
+          postedDate: '2026-10-02',
+          note: '',
+        }),
+      ).rejects.toBeInstanceOf(LedgerError);
+    });
+
+    it('manages people: duplicates, editing, archiving and deleting unused ones', async () => {
+      const { pocket, ali, sara } = await withPeople();
+      await expect(services.setup.createPerson({ name: ' ali ' })).rejects.toThrow('already');
+      await services.setup.updatePerson(ali.id, {
+        name: 'Ali Hassan',
+        dueDate: '2026-12-01',
+        note: 'Work',
+      });
+      const updated = await repos.accounts.getById(ali.id);
+      expect(updated).toMatchObject({
+        name: 'Ali Hassan',
+        dueDate: '2026-12-01',
+        note: 'Work',
+        accountClass: 'person',
+      });
+      expect(await services.setup.removeAccount(ali.id)).toBe('deleted');
+      expect(await services.setup.removeAccount(sara.id)).toBe('archived');
+      expect((await services.queries.home()).people).toHaveLength(0);
+      expect(
+        (await services.queries.people({ includeArchived: true })).map(
+          (entry) => entry.account.name,
+        ),
+      ).toEqual(['Sara']);
+      expect(await services.setup.removeAccount(pocket.id)).toBe('archived');
+    });
+
+    it('searches activity by person name and filters debts', async () => {
+      const { pocket, ali, food } = await withPeople();
+      await debt('lend', ali.id, pocket.id, 3000, '2026-10-02');
+      await services.ledger.createTransaction({
+        kind: 'expense',
+        accountId: pocket.id,
+        currency: 'USD',
+        amountMinor: 100,
+        categoryId: food.id,
+        postedDate: '2026-10-02',
+        note: '',
+      });
+      expect(await repos.transactions.count({ search: 'ali' })).toBe(1);
+      expect(await repos.transactions.count({ debts: 'only' })).toBe(1);
+      expect(await repos.transactions.count({ kinds: ['transfer'], debts: 'exclude' })).toBe(0);
+    });
+
+    it('exports debts with their action as the type', async () => {
+      const { pocket, ali } = await withPeople();
+      await debt('lend', ali.id, pocket.id, 3000, '2026-10-02');
+      const csv = await services.exporter.transactionsCsv();
+      expect(csv.content).toContain('2026-10-02,lend,Pocket,,USD,-30.00');
+      expect(csv.content).toContain('2026-10-02,lend,Ali,,USD,30.00');
+    });
+
+    it('backs up and restores people and debts', async () => {
+      const { pocket, ali, sara } = await withPeople();
+      await debt('lend', ali.id, pocket.id, 3000, '2026-10-02');
+      const backup = await services.backup.create();
+      const otherRepos = await initializeDatabase(await makeDriver());
+      const other = createAppServices({
+        repos: otherRepos,
+        files: new FakeFileStore(),
+        clock: fixedClock,
+        newId,
+      });
+      await other.backup.restore(backup.content);
+      expect(await other.ledger.getBalance(ali.id, 'USD')).toBe(3000);
+      expect(await other.ledger.getBalance(sara.id, 'USD')).toBe(-5000);
+      expect(
+        (
+          await other.ledger.getTransaction(
+            (await other.queries.transactions({ debts: 'only' }))[0]?.id ?? '',
+          )
+        )?.debtAction,
+      ).toBe('lend');
+      const restoredSara = await otherRepos.accounts.getById(sara.id);
+      expect(restoredSara).toMatchObject({ accountClass: 'person', dueDate: '2026-11-15' });
+      await otherRepos.driver.close();
+    });
+  });
+
+  describe('upgrading an existing ledger', () => {
+    it('migrates a version 1 database without losing anything', async () => {
+      const driver = await makeDriver();
+      const first = MIGRATIONS[0];
+      if (!first) throw new Error('missing migration');
+      await driver.exec('PRAGMA foreign_keys = ON');
+      await driver.transaction(async (tx) => {
+        for (const statement of first.statements) await tx.exec(statement);
+        await tx.exec('PRAGMA user_version = 1');
+        await tx.run(
+          "INSERT INTO accounts (id, name, kind, icon, color, sort_order, created_at, archived_at) VALUES ('a1', 'Pocket', 'pocket', 'wallet', '#000', 0, '2026-01-01T00:00:00.000Z', NULL)",
+        );
+        await tx.run(
+          "INSERT INTO transactions (id, kind, posted_date, category_id, note, created_at, updated_at, deleted_at) VALUES ('t1', 'opening', '2026-01-01', NULL, '', 'x', 'x', NULL)",
+        );
+        await tx.run(
+          "INSERT INTO ledger_lines (id, transaction_id, account_id, currency, amount_minor, role) VALUES ('l1', 't1', 'a1', 'USD', 4200, 'main')",
+        );
+      });
+      const upgraded = await initializeDatabase(driver);
+      const version = await driver.get<{ user_version: number }>('PRAGMA user_version');
+      expect(version?.user_version).toBe(CURRENT_SCHEMA_VERSION);
+      const account = await upgraded.accounts.getById('a1');
+      expect(account).toMatchObject({ accountClass: 'money', note: '', dueDate: null });
+      expect((await upgraded.transactions.getById('t1'))?.debtAction).toBeNull();
+      expect(await upgraded.reports.balances()).toEqual([
+        { accountId: 'a1', currency: 'USD', balanceMinor: 4200 },
+      ]);
+      await driver.close();
+    });
+
+    it('restores a backup made before people existed', async () => {
+      await onboard();
+      const legacy = JSON.parse((await services.backup.create()).content);
+      legacy.schemaVersion = 1;
+      for (const row of legacy.tables.accounts) {
+        delete row.account_class;
+        delete row.note;
+        delete row.due_date;
+      }
+      for (const row of legacy.tables.transactions) delete row.debt_action;
+      await services.backup.restore(JSON.stringify(legacy));
+      const accounts = await repos.accounts.list();
+      expect(accounts.every((account) => account.accountClass === 'money')).toBe(true);
+      expect((await services.queries.home()).totals.USD).toBe(100000);
+    });
+  });
+
   describe('reminder planning', () => {
     class FakeScheduler implements ReminderScheduler {
       scheduled: ReminderPlan[] = [];
@@ -652,9 +958,12 @@ describe('backup reminder', () => {
       id: 'a',
       name: 'Pocket',
       kind: 'pocket' as const,
+      accountClass: 'money' as const,
       icon: 'wallet',
       color: '#000',
       sortOrder: 0,
+      note: '',
+      dueDate: null,
       createdAt: '2026-10-01T00:00:00.000Z',
       archivedAt: null,
     };

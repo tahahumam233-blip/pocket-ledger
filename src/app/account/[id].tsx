@@ -26,7 +26,7 @@ export default function AccountDetailScreen() {
   const entry = snapshot?.accountBalances.find((item) => item.account.id === id);
   const history = useQuery((s) => s.queries.transactions({ accountId: id, limit: 100 }), [id]);
   const currencies = snapshot?.settings.currencies ?? [];
-  const lookup = buildLookup(snapshot?.accounts ?? [], snapshot?.categories ?? []);
+  const lookup = buildLookup(snapshot?.allAccounts ?? [], snapshot?.categories ?? []);
 
   if (!entry) {
     return (

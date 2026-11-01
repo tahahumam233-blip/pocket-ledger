@@ -67,6 +67,18 @@ export const MIGRATIONS: readonly Migration[] = [
       `CREATE INDEX idx_receipts_transaction ON receipts(transaction_id)`,
     ],
   },
+  {
+    version: 2,
+    name: 'people and debts',
+    // Additive only: existing ledgers keep every row; new columns get defaults.
+    statements: [
+      `ALTER TABLE accounts ADD COLUMN account_class TEXT NOT NULL DEFAULT 'money' CHECK (account_class IN ('money', 'person'))`,
+      `ALTER TABLE accounts ADD COLUMN note TEXT NOT NULL DEFAULT ''`,
+      `ALTER TABLE accounts ADD COLUMN due_date TEXT CHECK (due_date IS NULL OR length(due_date) = 10)`,
+      `ALTER TABLE transactions ADD COLUMN debt_action TEXT CHECK (debt_action IS NULL OR debt_action IN ('lend', 'borrow', 'collect', 'repay'))`,
+      `CREATE INDEX idx_accounts_class ON accounts(account_class)`,
+    ],
+  },
 ];
 
 export const CURRENT_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]?.version ?? 0;

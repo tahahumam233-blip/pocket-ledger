@@ -3,7 +3,8 @@ import type { LedgerLine, Transaction, TransactionKind, TransactionWithLines } f
 import { type LedgerLineRow, mapLedgerLine, mapTransaction, type TransactionRow } from '../mappers';
 import { placeholders, type SqlExecutor, type SqlValue } from '../sql';
 
-const TX_COLUMNS = 'id, kind, posted_date, category_id, note, created_at, updated_at, deleted_at';
+const TX_COLUMNS =
+  'id, kind, debt_action, posted_date, category_id, note, created_at, updated_at, deleted_at';
 const LINE_COLUMNS = 'id, transaction_id, account_id, currency, amount_minor, role';
 
 export type TransactionFilter = {
@@ -13,8 +14,10 @@ export type TransactionFilter = {
   accountId?: string;
   categoryId?: string;
   currency?: string;
-  /** Matches notes and category names, case-insensitively. */
+  /** Matches notes, category names and people, case-insensitively. */
   search?: string;
+  /** 'only' keeps money exchanged with people; 'exclude' leaves it out. */
+  debts?: 'only' | 'exclude';
   includeDeleted?: boolean;
   limit?: number;
   offset?: number;
@@ -52,12 +55,17 @@ function buildWhere(filter: TransactionFilter): { sql: string; params: SqlValue[
     );
     params.push(filter.currency);
   }
+  if (filter.debts === 'only') clauses.push('t.debt_action IS NOT NULL');
+  if (filter.debts === 'exclude') clauses.push('t.debt_action IS NULL');
   if (filter.search && filter.search.trim()) {
     const needle = `%${filter.search.trim().toLowerCase()}%`;
     clauses.push(
-      `(LOWER(t.note) LIKE ? OR EXISTS (SELECT 1 FROM categories c WHERE c.id = t.category_id AND LOWER(c.name) LIKE ?))`,
+      `(LOWER(t.note) LIKE ?
+        OR EXISTS (SELECT 1 FROM categories c WHERE c.id = t.category_id AND LOWER(c.name) LIKE ?)
+        OR EXISTS (SELECT 1 FROM ledger_lines lp JOIN accounts ap ON ap.id = lp.account_id
+                   WHERE lp.transaction_id = t.id AND ap.account_class = 'person' AND LOWER(ap.name) LIKE ?))`,
     );
-    params.push(needle, needle);
+    params.push(needle, needle, needle);
   }
   return { sql: clauses.length ? `WHERE ${clauses.join(' AND ')}` : '', params };
 }
@@ -107,10 +115,11 @@ export function createTransactionsRepository(db: SqlExecutor) {
       executor: SqlExecutor,
     ): Promise<void> {
       await executor.run(
-        `INSERT INTO transactions (${TX_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO transactions (${TX_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           transaction.id,
           transaction.kind,
+          transaction.debtAction,
           transaction.postedDate,
           transaction.categoryId,
           transaction.note,
@@ -135,15 +144,16 @@ export function createTransactionsRepository(db: SqlExecutor) {
     async replace(
       transaction: Pick<
         Transaction,
-        'id' | 'kind' | 'postedDate' | 'categoryId' | 'note' | 'updatedAt'
+        'id' | 'kind' | 'debtAction' | 'postedDate' | 'categoryId' | 'note' | 'updatedAt'
       >,
       lines: LedgerLine[],
       executor: SqlExecutor,
     ): Promise<void> {
       await executor.run(
-        'UPDATE transactions SET kind = ?, posted_date = ?, category_id = ?, note = ?, updated_at = ? WHERE id = ?',
+        'UPDATE transactions SET kind = ?, debt_action = ?, posted_date = ?, category_id = ?, note = ?, updated_at = ? WHERE id = ?',
         [
           transaction.kind,
+          transaction.debtAction,
           transaction.postedDate,
           transaction.categoryId,
           transaction.note,

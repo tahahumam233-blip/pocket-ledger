@@ -58,7 +58,7 @@ export default function ReceiptDetailScreen() {
   const imageHeight = Math.min(imageWidth * ratio, 560);
   const linked =
     query.data.transaction && !query.data.transaction.deletedAt ? query.data.transaction : null;
-  const lookup = buildLookup(snapshot?.accounts ?? [], snapshot?.categories ?? []);
+  const lookup = buildLookup(snapshot?.allAccounts ?? [], snapshot?.categories ?? []);
 
   const detach = async () => {
     await mutate((s) => s.receipts.detach(receipt.id));

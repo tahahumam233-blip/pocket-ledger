@@ -5,6 +5,7 @@ A private, offline spending tracker for iPhone, built with Expo and React Native
 - **Two currencies, never mixed.** Pick a primary and a secondary currency; every total is shown per currency.
 - **Safe, Pocket and Bank.** Three accounts out of the box (add more if you like), each holding both currencies.
 - **Snap receipts now, add the amount later.** Photos wait in an inbox until you record them.
+- **Lend and borrow.** Track who owes you and whom you owe, record repayments, and share a statement of account for each person.
 - **A nightly reminder** at the time you choose, as a daily Calendar alert (or a notification in the optional native build).
 - **Reports** by category and by month, transfers and exchanges between currencies, balance adjustments, CSV export, backup and restore with photos, dark mode, and an optional Face ID lock in the native build.
 - **No account, no cloud, no ads.** Everything stays on the phone.
@@ -30,6 +31,7 @@ Every step, including the one-time publishing setup and backups, is in [docs/GET
 | Receipts   | Camera or photo library capture into an inbox; "Add the amount" turns a receipt into an expense and links the photo.                                                                        |
 | Reports    | Spent, received and net per currency, spending by category with a ring chart, and a six-month trend.                                                                                        |
 | Accounts   | Balances per currency, history, and "Adjust" to reconcile to what you actually counted.                                                                                                     |
+| People     | Everyone you lend to or borrow from, with what they owe you or what you owe them, a settle-by date and a statement of account you can share.                                                |
 | Settings   | Currencies, reminder time, appearance, app lock, accounts, categories, CSV export, privacy notes, erase all data.                                                                           |
 
 ## Development

@@ -12,6 +12,8 @@ Key/value strings. Keys: `onboarding_completed`, `currencies` (JSON array, prima
 
 `id`, `name`, `kind` (`safe` | `pocket` | `bank` | `other`), `icon`, `color`, `sort_order`, `created_at`, `archived_at`. An account holds balances in any currency; balances are never stored.
 
+Added in schema version 2: `account_class` (`money` | `person`, default `money`), `note` (text, default empty) and `due_date` (`YYYY-MM-DD` or null, the date a person's balance should be settled). People use `kind = 'other'` and `icon = 'person'`.
+
 ### categories
 
 `id`, `name`, `kind` (`expense` | `income`), `icon`, `color`, `sort_order`, `is_system`, `archived_at`. Default categories are seeded once on first launch.
@@ -19,6 +21,8 @@ Key/value strings. Keys: `onboarding_completed`, `currencies` (JSON array, prima
 ### transactions
 
 `id`, `kind` (`expense` | `income` | `transfer` | `opening` | `adjustment`), `posted_date` (`YYYY-MM-DD`, local calendar), `category_id` (nullable), `note`, `created_at`, `updated_at`, `deleted_at` (soft delete).
+
+Added in schema version 2: `debt_action` (`lend` | `borrow` | `collect` | `repay`, null otherwise). Debts are stored with `kind = 'transfer'` so every transfer rule and report exclusion applies unchanged.
 
 ### ledger_lines
 
@@ -32,6 +36,15 @@ Key/value strings. Keys: `onboarding_completed`, `currencies` (JSON array, prima
 ### receipts
 
 `id`, `file_name` (inside `Documents/receipts`), `width`, `height`, `note`, `captured_at`, `transaction_id` (nullable; null means "needs an amount"), `deleted_at`.
+
+## Migrations
+
+| Version | Change                                                                                                                                                                                                                   |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1       | Initial schema                                                                                                                                                                                                           |
+| 2       | People and debts: `accounts.account_class`, `accounts.note`, `accounts.due_date`, `transactions.debt_action`, index on `account_class`. Additive `ALTER TABLE` only; existing rows keep their data and get the defaults. |
+
+Backups made with schema version 1 restore into version 2 with the same defaults.
 
 ## Derived values
 

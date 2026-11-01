@@ -8,6 +8,7 @@ import {
   type CurrencyCode,
   DEFAULT_CATEGORY_TEMPLATES,
   type IsoDate,
+  isValidIsoDate,
   type MinorUnits,
   nowTimestamp,
   todayIsoDate,
@@ -16,6 +17,18 @@ import {
 import type { LedgerService } from './ledger-service';
 import type { Clock, IdGenerator } from './ports';
 import { type AppSettings, parseSettings, serializeSettings } from './settings';
+
+/** Colours given to new people in turn, so avatars are easy to tell apart. */
+const PERSON_COLORS = [
+  '#5B5BD6',
+  '#19A89D',
+  '#E05297',
+  '#F29D35',
+  '#3B82F6',
+  '#8E5CD9',
+  '#34A853',
+  '#D64560',
+];
 
 export type OnboardingAccountInput = {
   name: string;
@@ -89,9 +102,12 @@ export function createSetupService(deps: {
         id: id('acct'),
         name: account.name.trim() || account.kind,
         kind: account.kind,
+        accountClass: 'money',
         icon: account.icon,
         color: account.color,
         sortOrder: index,
+        note: '',
+        dueDate: null,
         createdAt: timestamp,
         archivedAt: null,
       }));
@@ -136,14 +152,17 @@ export function createSetupService(deps: {
       icon: string;
       color: string;
     }): Promise<Account> {
-      const existing = await repos.accounts.list({ includeArchived: true });
+      const existing = await repos.accounts.list({ includeArchived: true, accountClass: 'money' });
       const account: Account = {
         id: id('acct'),
         name: input.name.trim(),
         kind: input.kind,
+        accountClass: 'money',
         icon: input.icon,
         color: input.color,
         sortOrder: existing.length,
+        note: '',
+        dueDate: null,
         createdAt: nowTimestamp(now()),
         archivedAt: null,
       };
@@ -167,11 +186,89 @@ export function createSetupService(deps: {
 
     /** Accounts with history are archived (kept for reports); unused ones are removed. */
     async removeAccount(accountId: string): Promise<'deleted' | 'archived'> {
-      const active = (await repos.accounts.list()).filter((account) => account.id !== accountId);
-      if (active.length === 0) throw new Error('Keep at least one account.');
+      const target = await repos.accounts.getById(accountId);
+      if (target?.accountClass === 'money') {
+        const active = (await repos.accounts.list({ accountClass: 'money' })).filter(
+          (account) => account.id !== accountId,
+        );
+        if (active.length === 0) throw new Error('Keep at least one account.');
+      }
       if (await repos.accounts.deleteIfUnused(accountId)) return 'deleted';
       await repos.accounts.setArchived(accountId, nowTimestamp(now()));
       return 'archived';
+    },
+
+    /**
+     * Adds a person you lend to or borrow from. An optional starting balance
+     * records what was already owed before you started using the app.
+     */
+    async createPerson(input: {
+      name: string;
+      note?: string;
+      dueDate?: IsoDate | null;
+      color?: string;
+      startingBalance?: { currency: CurrencyCode; amountMinor: MinorUnits; postedDate?: IsoDate };
+    }): Promise<Account> {
+      const name = input.name.trim();
+      if (!name) throw new Error('Enter a name.');
+      const people = await repos.accounts.list({ includeArchived: true, accountClass: 'person' });
+      if (
+        people.some(
+          (person) => !person.archivedAt && person.name.toLowerCase() === name.toLowerCase(),
+        )
+      ) {
+        throw new Error(`${name} is already in your people.`);
+      }
+      if (input.dueDate && !isValidIsoDate(input.dueDate)) throw new Error('Pick a valid date.');
+      const person: Account = {
+        id: id('acct'),
+        name,
+        kind: 'other',
+        accountClass: 'person',
+        icon: 'person',
+        color: input.color ?? PERSON_COLORS[people.length % PERSON_COLORS.length] ?? '#5B5BD6',
+        sortOrder: people.length,
+        note: input.note?.trim() ?? '',
+        dueDate: input.dueDate ?? null,
+        createdAt: nowTimestamp(now()),
+        archivedAt: null,
+      };
+      await repos.accounts.insert(person);
+      const starting = input.startingBalance;
+      if (starting && starting.amountMinor !== 0) {
+        try {
+          await ledger.createTransaction({
+            kind: 'opening',
+            accountId: person.id,
+            currency: starting.currency,
+            amountMinor: starting.amountMinor,
+            postedDate: starting.postedDate ?? todayIsoDate(now()),
+            note: '',
+          });
+        } catch (error) {
+          await repos.accounts.deleteIfUnused(person.id);
+          throw error;
+        }
+      }
+      return person;
+    },
+
+    async updatePerson(
+      personId: string,
+      changes: { name?: string; note?: string; dueDate?: IsoDate | null; color?: string },
+    ): Promise<void> {
+      const person = await repos.accounts.getById(personId);
+      if (!person || person.accountClass !== 'person')
+        throw new Error('That person was not found.');
+      if (changes.name !== undefined && !changes.name.trim()) throw new Error('Enter a name.');
+      if (changes.dueDate && !isValidIsoDate(changes.dueDate))
+        throw new Error('Pick a valid date.');
+      await repos.accounts.update(personId, {
+        ...(changes.name !== undefined ? { name: changes.name.trim() } : {}),
+        ...(changes.note !== undefined ? { note: changes.note.trim() } : {}),
+        ...(changes.dueDate !== undefined ? { dueDate: changes.dueDate } : {}),
+        ...(changes.color !== undefined ? { color: changes.color } : {}),
+      });
     },
 
     async restoreAccount(accountId: string): Promise<void> {
