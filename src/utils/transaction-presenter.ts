@@ -16,9 +16,9 @@ export type TransactionPresentation = {
   /** The amounts to show on the right; exchanges carry two. */
   amounts: { amountMinor: number; currency: string }[];
   kindLabel: string;
-  /** Debts show the signed movement of your own money, in neutral colours. */
+  /** Loans show the signed movement of your own money, in neutral colours. */
   neutral: boolean;
-  /** The person involved, for debts and entries paid by or owed by someone. */
+  /** The party involved, for loans and for entries posted on account. */
   person: Account | null;
 };
 
@@ -38,17 +38,24 @@ export const KIND_LABELS = {
   expense: 'Expense',
   income: 'Income',
   transfer: 'Transfer',
-  debt: 'Debt',
+  debt: 'Loan',
   opening: 'Opening balance',
-  adjustment: 'Balance adjustment',
+  adjustment: 'Reconciliation adjustment',
 } as const;
 
 const DEBT_TITLES = {
-  lend: (name: string) => `Lent to ${name}`,
-  borrow: (name: string) => `Borrowed from ${name}`,
-  collect: (name: string) => `${name} paid you back`,
-  repay: (name: string) => `Paid back ${name}`,
+  lend: (name: string) => `Loan given to ${name}`,
+  borrow: (name: string) => `Loan received from ${name}`,
+  collect: (name: string) => `Repayment received from ${name}`,
+  repay: (name: string) => `Repayment made to ${name}`,
 } as const;
+
+/** Default notes written on system entries, including the wording used before version 1.2. */
+const SYSTEM_NOTES = new Set([
+  'Opening balance',
+  'Reconciliation adjustment',
+  'Balance adjustment',
+]);
 
 function lineByRole(lines: LedgerLine[], role: LedgerLine['role']) {
   return lines.find((line) => line.role === role);
@@ -70,7 +77,7 @@ export function presentTransaction(
     const person = personLine ? (lookup.accounts.get(personLine.accountId) ?? null) : null;
     const moneyAccount = moneyLine ? lookup.accounts.get(moneyLine.accountId) : undefined;
     return {
-      title: DEBT_TITLES[action](person?.name ?? 'someone'),
+      title: DEBT_TITLES[action](person?.name ?? 'party'),
       subtitle: [moneyAccount?.name, note].filter(Boolean).join(' · '),
       icon: DEBT_ACTION_INFO[action].icon,
       color: person?.color ?? colors.transfer,
@@ -114,7 +121,7 @@ export function presentTransaction(
   if (kind === 'opening' || kind === 'adjustment') {
     return {
       title: kindLabel,
-      subtitle: [account?.name, note && note !== kindLabel ? note : null]
+      subtitle: [account?.name, note && !SYSTEM_NOTES.has(note) ? note : null]
         .filter(Boolean)
         .join(' · '),
       icon: kind === 'opening' ? 'flag' : 'options',
@@ -131,8 +138,8 @@ export function presentTransaction(
     : undefined;
   const via = person
     ? kind === 'income'
-      ? `Owed by ${person.name}`
-      : `Paid by ${person.name}`
+      ? `Receivable from ${person.name}`
+      : `Paid by ${person.name} (payable)`
     : account?.name;
   return {
     title: category?.name ?? (kind === 'income' ? 'Income' : 'Expense'),

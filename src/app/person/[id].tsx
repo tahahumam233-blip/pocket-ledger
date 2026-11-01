@@ -7,7 +7,6 @@ import { Button } from '@/components/button';
 import { Card } from '@/components/card';
 import { Chip } from '@/components/chip';
 import { CurrencyToggle } from '@/components/currency-toggle';
-import { DebtBalanceText } from '@/components/debt-balance-text';
 import { EmptyState } from '@/components/empty-state';
 import { Icon } from '@/components/icon';
 import { MoneyText } from '@/components/money-text';
@@ -22,6 +21,7 @@ import {
   debtStanding,
   describeDue,
   formatDateLabel,
+  formatDrCr,
   getCurrency,
   type IsoDate,
   minorToDecimalString,
@@ -62,6 +62,11 @@ function rangeFor(period: Period): { from: IsoDate | null; to: IsoDate | null } 
   }
 }
 
+/** Debit balances are receivables (green), credit balances are payables (red). */
+function drCrTone(balanceMinor: number): 'income' | 'expense' | 'subtle' {
+  return balanceMinor > 0 ? 'income' : balanceMinor < 0 ? 'expense' : 'subtle';
+}
+
 export default function PersonScreen() {
   const theme = useTheme();
   const router = useRouter();
@@ -89,13 +94,9 @@ export default function PersonScreen() {
 
   if (!entry) {
     return (
-      <Screen header={{ title: 'Person', back: true }}>
+      <Screen header={{ title: 'Party', back: true }}>
         {person.loading ? null : (
-          <EmptyState
-            icon="person"
-            title="Person not found"
-            message="They may have been removed."
-          />
+          <EmptyState icon="person" title="Party not found" message="They may have been removed." />
         )}
       </Screen>
     );
@@ -130,7 +131,7 @@ export default function PersonScreen() {
     if (!data) return;
     try {
       const shared = await shareText(
-        `Statement for ${account.name}`,
+        `Statement of account: ${account.name}`,
         statementToText(data, account.name, { appName: brand.name, today: snapshot?.today }),
       );
       if (shared) {
@@ -144,7 +145,7 @@ export default function PersonScreen() {
 
   const exportStatement = async () => {
     if (!data) return;
-    const safeName = account.name.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'person';
+    const safeName = account.name.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'party';
     try {
       await shareTextFile(
         `statement-${safeName}-${currency}.csv`,
@@ -168,7 +169,7 @@ export default function PersonScreen() {
               router.push({ pathname: '/person/edit/[id]', params: { id: account.id } })
             }
             accessibilityRole="button"
-            accessibilityLabel="Edit person"
+            accessibilityLabel="Edit party"
             hitSlop={8}
           >
             <Icon name="create" size={22} color={theme.colors.primary} outline />
@@ -219,10 +220,10 @@ export default function PersonScreen() {
               <View key={code} style={styles.balance}>
                 <AppText variant="micro" tone="muted">
                   {standing === 'owes_you'
-                    ? 'Owes you'
+                    ? 'Receivable'
                     : standing === 'you_owe'
-                      ? 'You owe'
-                      : 'Settled'}{' '}
+                      ? 'Payable'
+                      : 'Nil balance'}{' '}
                   · {code}
                 </AppText>
                 <MoneyText
@@ -248,7 +249,7 @@ export default function PersonScreen() {
 
       <View style={styles.actions}>
         <Button
-          label="I gave"
+          label="Pay out"
           icon="arrow-up-circle"
           variant="secondary"
           onPress={() => openDebt('gave')}
@@ -256,7 +257,7 @@ export default function PersonScreen() {
           testID="person-gave"
         />
         <Button
-          label="I got"
+          label="Receive"
           icon="arrow-down-circle"
           variant="secondary"
           onPress={() => openDebt('got')}
@@ -266,7 +267,7 @@ export default function PersonScreen() {
       </View>
       <View style={styles.secondaryActions}>
         <Chip
-          label="They paid for me"
+          label="Expense paid by party"
           icon="cart"
           size="sm"
           onPress={() =>
@@ -278,7 +279,7 @@ export default function PersonScreen() {
         />
         {balance !== 0 ? (
           <Chip
-            label={`Settle ${currency} in full`}
+            label={`Settle ${currency} balance`}
             icon="checkmark-done"
             size="sm"
             onPress={settleUp}
@@ -312,19 +313,16 @@ export default function PersonScreen() {
           <Card padded={false}>
             <View style={[styles.statementRow, { borderBottomColor: theme.colors.border }]}>
               <View style={styles.statementText}>
-                <AppText variant="bodyMedium">Opening balance</AppText>
+                <AppText variant="bodyMedium">Opening balance b/f</AppText>
                 <AppText variant="caption" tone="muted">
                   {data.from
                     ? `Before ${formatDateLabel(data.from, snapshot?.today)}`
                     : 'Start of history'}
                 </AppText>
               </View>
-              <MoneyText
-                amountMinor={data.openingMinor}
-                currency={currency}
-                variant="amount"
-                signed
-              />
+              <AppText variant="amount" tone={drCrTone(data.openingMinor)}>
+                {formatDrCr(data.openingMinor, currency)}
+              </AppText>
             </View>
             {data.entries.length === 0 ? (
               <View style={styles.emptyPeriod}>
@@ -356,8 +354,8 @@ export default function PersonScreen() {
                   ) : null}
                 </View>
                 <View style={styles.statementAmounts}>
-                  <AppText variant="micro" tone={item.gaveMinor ? 'expense' : 'income'}>
-                    {item.gaveMinor ? 'You gave' : 'You got'}
+                  <AppText variant="micro" tone="muted">
+                    {item.gaveMinor ? 'Debit' : 'Credit'}
                   </AppText>
                   <MoneyText
                     amountMinor={item.gaveMinor || item.gotMinor}
@@ -365,13 +363,7 @@ export default function PersonScreen() {
                     variant="amount"
                   />
                   <AppText variant="caption" tone="muted">
-                    Balance{' '}
-                    <MoneyText
-                      amountMinor={item.balanceMinor}
-                      currency={currency}
-                      variant="caption"
-                      tone="muted"
-                    />
+                    Bal {formatDrCr(item.balanceMinor, currency)}
                   </AppText>
                 </View>
               </PressableScale>
@@ -379,7 +371,7 @@ export default function PersonScreen() {
             <View style={[styles.totals, { backgroundColor: theme.colors.surfaceMuted }]}>
               <View style={styles.totalRow}>
                 <AppText variant="label" tone="muted">
-                  Total you gave
+                  Total debits
                 </AppText>
                 <MoneyText
                   amountMinor={data.totalGaveMinor}
@@ -389,7 +381,7 @@ export default function PersonScreen() {
               </View>
               <View style={styles.totalRow}>
                 <AppText variant="label" tone="muted">
-                  Total you got
+                  Total credits
                 </AppText>
                 <MoneyText
                   amountMinor={data.totalGotMinor}
@@ -398,13 +390,14 @@ export default function PersonScreen() {
                 />
               </View>
               <View style={styles.totalRow}>
-                <AppText variant="labelStrong">Closing balance</AppText>
-                <DebtBalanceText
-                  balanceMinor={data.closingMinor}
-                  currency={currency}
+                <AppText variant="labelStrong">Closing balance c/f</AppText>
+                <AppText
                   variant="amount"
+                  tone={drCrTone(data.closingMinor)}
                   testID="statement-closing"
-                />
+                >
+                  {formatDrCr(data.closingMinor, currency)}
+                </AppText>
               </View>
             </View>
           </Card>

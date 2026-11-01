@@ -22,9 +22,9 @@ type Filter = 'all' | 'owes_you' | 'you_owe' | 'settled';
 
 const FILTERS: { value: Filter; label: string }[] = [
   { value: 'all', label: 'All' },
-  { value: 'owes_you', label: 'Owe you' },
-  { value: 'you_owe', label: 'You owe' },
-  { value: 'settled', label: 'Settled' },
+  { value: 'owes_you', label: 'Receivable' },
+  { value: 'you_owe', label: 'Payable' },
+  { value: 'settled', label: 'Nil balance' },
 ];
 
 export default function PeopleScreen() {
@@ -67,15 +67,15 @@ export default function PeopleScreen() {
   return (
     <Screen
       header={{
-        title: 'People',
+        title: 'Receivables & payables',
         back: true,
         large: true,
-        subtitle: 'Money you lend and borrow, with a statement for each person.',
+        subtitle: 'Loans given and received, with a statement of account for each party.',
         right: (
           <PressableScale
             onPress={addPerson}
             accessibilityRole="button"
-            accessibilityLabel="Add a person"
+            accessibilityLabel="Add a party"
             hitSlop={8}
             testID="add-person"
           >
@@ -89,9 +89,9 @@ export default function PeopleScreen() {
       {(people.data ?? []).length === 0 && people.data ? (
         <EmptyState
           icon="people"
-          title="No one yet"
-          message="Add the people you lend money to or borrow from. Each one gets a running balance and a statement of account."
-          actionLabel="Add a person"
+          title="No parties yet"
+          message="Add each debtor or creditor you lend to or borrow from. Each party gets a running balance and a statement of account."
+          actionLabel="Add a party"
           onAction={addPerson}
         />
       ) : (
@@ -99,7 +99,7 @@ export default function PeopleScreen() {
           <TextField
             value={search}
             onChangeText={setSearch}
-            placeholder="Search people"
+            placeholder="Search parties"
             autoCorrect={false}
             clearButtonMode="while-editing"
           />
@@ -131,11 +131,11 @@ export default function PeopleScreen() {
             </Card>
           ) : (
             <AppText tone="muted" align="center">
-              No one matches.
+              No parties match.
             </AppText>
           )}
           <Button
-            label="Add a person"
+            label="Add a party"
             icon="person-add"
             variant="soft"
             onPress={addPerson}

@@ -105,7 +105,7 @@ type AccountPickerProps = {
   visible: boolean;
   onClose: () => void;
   accounts: Account[];
-  /** People offered as a second section, for example "Someone else paid". */
+  /** Parties offered as a second section, for example "Paid by a party (payable)". */
   people?: Account[];
   peopleTitle?: string;
   peopleHint?: string;
@@ -122,7 +122,7 @@ export function AccountPickerSheet({
   onClose,
   accounts,
   people = [],
-  peopleTitle = 'People',
+  peopleTitle = 'Parties',
   peopleHint,
   balances,
   currencies = [],
@@ -267,7 +267,7 @@ export function PersonPickerSheet({
     }
   };
   return (
-    <BottomSheet visible={visible} onClose={close} title="Person" maxHeight={0.9}>
+    <BottomSheet visible={visible} onClose={close} title="Party" maxHeight={0.9}>
       <TextField
         value={query}
         onChangeText={setQuery}
@@ -301,7 +301,7 @@ export function PersonPickerSheet({
               {creating ? 'Adding…' : `Add \u201c${trimmed}\u201d`}
             </AppText>
             <AppText variant="caption" tone="muted">
-              New person you lend to or borrow from
+              New debtor or creditor
             </AppText>
           </View>
         </PressableScale>
@@ -352,7 +352,7 @@ export function PersonPickerSheet({
                   </View>
                 ) : (
                   <AppText variant="caption" tone="subtle">
-                    Settled
+                    Nil balance
                   </AppText>
                 )}
               </View>
@@ -364,7 +364,7 @@ export function PersonPickerSheet({
         })}
         {active.length === 0 && !trimmed ? (
           <AppText variant="caption" tone="muted" align="center">
-            Type a name above to add the first person.
+            Type a name above to add the first party.
           </AppText>
         ) : null}
       </View>

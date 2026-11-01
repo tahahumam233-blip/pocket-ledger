@@ -59,7 +59,7 @@ type TransactionFormProps = {
   /** Preselects the person and action when opened from a person's page. */
   initialPersonId?: string;
   initialDebtAction?: DebtAction;
-  /** Prefills the amount, as plain decimal text, and its currency (used by "Settle in full"). */
+  /** Prefills the amount, as plain decimal text, and its currency (used by "Settle balance"). */
   initialAmount?: string;
   initialCurrency?: string;
   /** A pending receipt that should be linked when the entry is saved. */
@@ -72,14 +72,14 @@ const KIND_OPTIONS: { value: EditableKind; label: string }[] = [
   { value: 'expense', label: 'Expense' },
   { value: 'income', label: 'Income' },
   { value: 'transfer', label: 'Transfer' },
-  { value: 'debt', label: 'Debt' },
+  { value: 'debt', label: 'Loan' },
 ];
 
 const DEBT_TOASTS: Record<DebtAction, string> = {
-  lend: 'Loan recorded.',
-  borrow: 'Borrowing recorded.',
-  collect: 'Repayment received.',
-  repay: 'Repayment recorded.',
+  lend: 'Loan given posted.',
+  borrow: 'Loan received posted.',
+  collect: 'Repayment received posted.',
+  repay: 'Repayment made posted.',
 };
 
 function trimDraft(decimal: string): string {
@@ -257,8 +257,8 @@ export function TransactionForm({
   const title =
     kind === 'debt' && !fixedKind
       ? mode === 'edit'
-        ? 'Edit debt'
-        : 'New debt'
+        ? 'Edit loan entry'
+        : 'New loan entry'
       : mode === 'edit'
         ? `Edit ${KIND_LABELS[effectiveKind].toLowerCase()}`
         : `New ${KIND_LABELS[kind].toLowerCase()}`;
@@ -330,7 +330,7 @@ export function TransactionForm({
     }
     if (kind === 'debt') {
       if (!personId) {
-        setError('Choose a person.');
+        setError('Choose a party.');
         return null;
       }
       return {
@@ -409,7 +409,7 @@ export function TransactionForm({
           ? 'Changes saved.'
           : kind === 'debt' && !fixedKind
             ? DEBT_TOASTS[debtAction]
-            : `${KIND_LABELS[effectiveKind]} recorded.`,
+            : `${KIND_LABELS[effectiveKind]} posted.`,
         { tone: 'success' },
       );
       if (router.canGoBack()) router.back();
@@ -598,7 +598,7 @@ export function TransactionForm({
         <Card padded={false}>
           {kind === 'debt' && !fixedKind ? (
             <SelectRow
-              label="Person"
+              label="Party"
               value={person?.name ?? ''}
               placeholder="Choose or add"
               leading={
@@ -616,11 +616,11 @@ export function TransactionForm({
                 ? 'From'
                 : kind === 'debt' && !fixedKind
                   ? debtGoesToPerson(debtAction)
-                    ? 'From'
-                    : 'Into'
+                    ? 'Paid from'
+                    : 'Received into'
                   : account?.accountClass === 'person'
                     ? kind === 'income'
-                      ? 'Owed by'
+                      ? 'Receivable from'
                       : 'Paid by'
                     : 'Account'
             }
@@ -680,7 +680,7 @@ export function TransactionForm({
             <View style={styles.previewRow}>
               <View style={styles.switchText}>
                 <AppText variant="caption" tone="muted">
-                  Now
+                  Current balance
                 </AppText>
                 <DebtBalanceText
                   balanceMinor={debtPreview.current}
@@ -692,7 +692,7 @@ export function TransactionForm({
               <Icon name="arrow-forward" size={18} color={theme.colors.textSubtle} />
               <View style={styles.switchText}>
                 <AppText variant="caption" tone="muted">
-                  After this
+                  After posting
                 </AppText>
                 <DebtBalanceText
                   balanceMinor={debtPreview.after}
@@ -803,11 +803,11 @@ export function TransactionForm({
         onClose={() => setPicker(null)}
         accounts={accounts}
         people={(kind === 'expense' || kind === 'income') && !fixedKind ? people : []}
-        peopleTitle={kind === 'income' ? 'Not received yet' : 'Someone else paid'}
+        peopleTitle={kind === 'income' ? 'On account (receivable)' : 'Paid by a party (payable)'}
         peopleHint={
           kind === 'income'
-            ? 'They owe you this money until it arrives.'
-            : 'They paid for you, so you will owe them.'
+            ? 'Posted to the party as a receivable until it is collected.'
+            : 'The party paid on your behalf; posted as a payable to them.'
         }
         balances={balances}
         currencies={currencies}
@@ -817,8 +817,8 @@ export function TransactionForm({
             ? 'From account'
             : kind === 'debt'
               ? debtGoesToPerson(debtAction)
-                ? 'Money comes from'
-                : 'Money goes into'
+                ? 'Paid from'
+                : 'Received into'
               : 'Account'
         }
         onSelect={(selected: Account) => {

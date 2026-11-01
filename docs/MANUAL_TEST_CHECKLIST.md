@@ -33,7 +33,7 @@ Run on a real phone after changes to screens, storage or notifications.
 
 ## Accounts and settings
 
-- [ ] Adjust a balance; an adjustment entry appears and the balance matches the counted amount.
+- [ ] Reconcile an account; a reconciliation adjustment appears and the balance matches the counted amount.
 - [ ] Remove an account with history; it is archived and can be restored.
 - [ ] Replacing a currency with history is blocked; swapping primary and secondary works.
 - [ ] Dark mode follows the system and the manual setting.
@@ -54,16 +54,16 @@ Run on a real phone after changes to screens, storage or notifications.
 - [ ] Erase all data, then Restore from a backup on the first screen: entries and photos return.
 - [ ] Publish a change and reopen the app twice: the new version appears.
 
-## People and debts
+## Receivables and payables
 
-- [ ] Home shows "Lend or borrow money?" until the first person exists, then the People card with Owed to you and You owe.
-- [ ] Lend/Borrow: lend to a new person typed in the picker; the preview shows "Name owes you"; Pocket drops by the amount.
-- [ ] On the person, "I got" proposes "Got paid back" while they owe you; the balance drops.
-- [ ] "They paid for me" records an expense that appears in Reports and lowers what they owe.
-- [ ] "Settle in full" prefills the exact amount and leaves the balance Settled.
-- [ ] Statement: periods change the opening balance; totals and closing balance match the person balance; Share opens the share sheet with the text; Export CSV saves a file.
-- [ ] Add a person with "I owe them" and an amount; they appear under You owe.
-- [ ] A settle-by date shows "Due in N days" and turns red when overdue.
-- [ ] Removing a person with history archives them; Show archived lists them and Restore brings them back.
-- [ ] Activity: the Debts filter shows only debts; searching a person's name finds their entries.
+- [ ] Home shows "Loans given or received?" until the first party exists, then the Receivables & payables card with Receivables and Payables totals.
+- [ ] Loan: post a loan given to a new party typed in the picker; the preview shows "Receivable from Name"; Pocket drops by the amount.
+- [ ] On the party, "Receive" proposes "Repayment received" while the balance is receivable; the receivable drops.
+- [ ] "Expense paid by party" posts an expense that appears in Reports and credits the party.
+- [ ] "Settle USD balance" prefills the exact amount and leaves a nil balance.
+- [ ] Statement: periods change the opening balance b/f; Debit and Credit labels and Dr/Cr running balances are correct; opening + total debits − total credits = closing balance c/f, which matches the party balance; Share opens the share sheet with the text; Export CSV saves a file.
+- [ ] Add a party with an opening balance marked Payable; they appear under Payables.
+- [ ] A due date shows "Due in N days" and turns red when overdue.
+- [ ] Removing a party with history archives them; Show archived lists them and Restore brings them back.
+- [ ] Activity: the Loans filter shows only loan entries; searching a party's name finds their entries.
 - [ ] Reports never count loans or repayments.

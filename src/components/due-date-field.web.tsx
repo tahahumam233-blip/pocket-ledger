@@ -28,7 +28,7 @@ export function DueDateField({ value, onChange }: DueDateFieldProps) {
         />
         <input
           type="date"
-          aria-label="Settle by"
+          aria-label="Due date"
           value={value ?? ''}
           onChange={(event) => {
             const next = event.currentTarget.value;

@@ -39,7 +39,7 @@ const KIND_OPTIONS: {
   { value: 'expense', label: 'Expenses', kinds: ['expense'] },
   { value: 'income', label: 'Income', kinds: ['income'] },
   { value: 'transfer', label: 'Transfers', kinds: ['transfer'], debts: 'exclude' },
-  { value: 'debt', label: 'Debts', kinds: ['transfer'], debts: 'only' },
+  { value: 'debt', label: 'Loans', kinds: ['transfer'], debts: 'only' },
 ];
 
 function parseMonthParam(value: string | undefined): YearMonth {
@@ -131,7 +131,7 @@ export default function ActivityScreen() {
         <TextField
           value={search}
           onChangeText={setSearch}
-          placeholder="Search notes, categories and people"
+          placeholder="Search notes, categories and parties"
           autoCorrect={false}
           clearButtonMode="while-editing"
           returnKeyType="search"
@@ -180,7 +180,7 @@ export default function ActivityScreen() {
           <View style={styles.summaryRow}>
             <View style={styles.summaryCol}>
               <AppText variant="micro" tone="muted">
-                Spent
+                Expenses
               </AppText>
               {currencies.map((code) => (
                 <MoneyText
@@ -194,7 +194,7 @@ export default function ActivityScreen() {
             </View>
             <View style={styles.summaryCol}>
               <AppText variant="micro" tone="muted">
-                Received
+                Income
               </AppText>
               {currencies.map((code) => (
                 <MoneyText
@@ -261,11 +261,11 @@ export default function ActivityScreen() {
           query.loading && !query.data ? undefined : (
             <EmptyState
               icon="calendar"
-              title="Nothing here yet"
+              title="No entries"
               message={
                 search || categoryId || accountId || kind !== 'all' || currency
                   ? 'No entries match these filters for this month.'
-                  : 'Entries you record this month will show up here, grouped by day.'
+                  : 'Entries posted this month appear here, grouped by day.'
               }
               actionLabel="Add an expense"
               onAction={() =>

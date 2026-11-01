@@ -2,6 +2,14 @@
 
 ## 1.0.0 (unreleased)
 
+### Changed: accounting terminology
+
+- Standard bookkeeping wording throughout: Receivables & payables, party, receivable / payable / nil balance, Loan given, Loan received, Repayment received, Repayment made.
+- Statements show Debit and Credit, running balances marked Dr or Cr, Opening balance b/f, Total debits, Total credits and Closing balance c/f, in the app, the shared text and the CSV.
+- Home shows Cash & bank, Expenses today and Month to date; Reports show Expenses, Income and Net income; Activity has a Loans filter.
+- Accounts are reconciled with a Reconcile screen (book balance, counted balance, reconciliation difference); new adjustments carry the note "Reconciliation adjustment".
+- Stored data and backups are unchanged.
+
 First complete version, rebuilt from scratch on Expo SDK 58.
 
 ### Added

@@ -31,7 +31,7 @@ function changeLabel(
   previous: number,
 ): { text: string; tone: 'income' | 'expense' | 'muted' } {
   if (previous === 0)
-    return { text: current === 0 ? 'Same as last month' : 'No spending last month', tone: 'muted' };
+    return { text: current === 0 ? 'Same as last month' : 'No expenses last month', tone: 'muted' };
   const delta = Math.round(((current - previous) / previous) * 100);
   if (delta === 0) return { text: 'Same as last month', tone: 'muted' };
   return delta > 0
@@ -95,7 +95,7 @@ export default function ReportsScreen() {
       <View style={styles.tiles}>
         <Card style={styles.tile}>
           <AppText variant="micro" tone="muted">
-            Spent
+            Expenses
           </AppText>
           <MoneyText
             amountMinor={summary?.expense ?? 0}
@@ -114,7 +114,7 @@ export default function ReportsScreen() {
         </Card>
         <Card style={styles.tile}>
           <AppText variant="micro" tone="muted">
-            Received
+            Income
           </AppText>
           <MoneyText
             amountMinor={summary?.income ?? 0}
@@ -136,9 +136,10 @@ export default function ReportsScreen() {
       <Card muted>
         <View style={styles.netRow}>
           <View style={styles.netText}>
-            <AppText variant="labelStrong">Net this month</AppText>
+            <AppText variant="labelStrong">Net income</AppText>
             <AppText variant="caption" tone="muted">
-              Received minus spent. Transfers and adjustments are left out.
+              Income less expenses. Excludes transfers, exchanges, loans, opening balances and
+              adjustments.
             </AppText>
           </View>
           <MoneyText
@@ -154,7 +155,7 @@ export default function ReportsScreen() {
       </Card>
 
       <View style={styles.section}>
-        <SectionHeader title="Spending by category" />
+        <SectionHeader title="Expenses by category" />
         <Card>
           {summary && summary.expense > 0 ? (
             <View style={styles.donutLayout}>
@@ -242,7 +243,7 @@ export default function ReportsScreen() {
             <EmptyState
               compact
               icon="pie-chart"
-              title="No spending this month"
+              title="No expenses this month"
               message={`Expenses in ${activeCurrency} will be grouped by category here.`}
             />
           )}
@@ -250,7 +251,7 @@ export default function ReportsScreen() {
       </View>
 
       <View style={styles.section}>
-        <SectionHeader title="Last six months" caption="Spent in red, received in green" />
+        <SectionHeader title="Last six months" caption="Expenses in red, income in green" />
         <Card>
           <BarChart
             data={(report.data?.trend ?? []).map((bucket) => ({

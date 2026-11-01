@@ -11,7 +11,7 @@ type DebtSummaryProps = {
   onPress?: () => void;
 };
 
-/** Two tiles: what people owe you and what you owe, each per currency. */
+/** Two tiles: total receivables and total payables, each per currency. */
 export function DebtSummary({ totals, currencies, onPress }: DebtSummaryProps) {
   const column = (
     title: string,
@@ -37,10 +37,10 @@ export function DebtSummary({ totals, currencies, onPress }: DebtSummaryProps) {
     </View>
   );
   return (
-    <Card onPress={onPress} accessibilityLabel="Debts summary">
+    <Card onPress={onPress} accessibilityLabel="Receivables and payables summary">
       <View style={styles.row}>
-        {column('Owed to you', totals.owedToYou, 'income')}
-        {column('You owe', totals.youOwe, 'expense')}
+        {column('Receivables', totals.owedToYou, 'income')}
+        {column('Payables', totals.youOwe, 'expense')}
       </View>
     </Card>
   );

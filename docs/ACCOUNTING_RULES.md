@@ -14,19 +14,33 @@ These are invariants, not preferences. Tests in `src/domain/*.test.ts` and `src/
 10. Editing validates the complete replacement before the write transaction opens, and replaces every line of the transaction in one transaction.
 11. Posting dates are `YYYY-MM-DD` in local time; audit timestamps are UTC ISO strings. They are never mixed.
 
-## People and debts
+## Receivables and payables (parties)
 
-12. A person is a ledger account of class `person`. Its balance per currency is what they owe you when positive and what you owe them when negative. Person balances are never added to the money totals on Home.
-13. Money exchanged with a person is a zero-sum transfer between your money account and the person, tagged with a debt action:
+12. A party (debtor or creditor) is a ledger account of class `person`. Its balance per currency is a receivable when it is a debit (positive) balance and a payable when it is a credit (negative) balance. Party balances are never added to the cash and bank totals on Home.
+13. A loan entry is a zero-sum transfer between one of your cash or bank accounts and the party, tagged with an action:
 
-| Action    | Your account | Person   | Meaning                               |
-| --------- | ------------ | -------- | ------------------------------------- |
-| `lend`    | − amount     | + amount | You gave money; they owe you more     |
-| `repay`   | − amount     | + amount | You returned money you owed           |
-| `borrow`  | + amount     | − amount | You received money; you owe them more |
-| `collect` | + amount     | − amount | They returned money they owed         |
+| Action (stored) | Label              | Cash or bank | Party  | Effect on the party      |
+| --------------- | ------------------ | ------------ | ------ | ------------------------ |
+| `lend`          | Loan given         | Credit (−)   | Debit  | Increases the receivable |
+| `repay`         | Repayment made     | Credit (−)   | Debit  | Reduces the payable      |
+| `borrow`        | Loan received      | Debit (+)    | Credit | Increases the payable    |
+| `collect`       | Repayment received | Debit (+)    | Credit | Reduces the receivable   |
 
-14. Debts are excluded from income and expense reports, like other transfers. A debt must be between exactly one person and one of your money accounts, in one currency.
-15. An expense may be recorded on a person account ("someone else paid"): it counts as spending and lowers their balance, so you owe them. Income on a person account ("not received yet") counts as income and raises their balance. Forgiving a debt is recorded the same way, as an expense or income on the person.
-16. A starting balance for a person is an `opening` entry on their account and is excluded from reports.
-17. A statement of account for a person and currency lists every active line in date order with a running balance. Lines before the period start form the opening balance; the closing balance equals the person's ledger balance at the end of the period.
+14. Loan entries are excluded from income and expense reports, like other transfers. A loan entry must be between exactly one party and one of your cash or bank accounts, in one currency.
+15. An expense may be posted to a party ("expense paid by party", paid on your behalf): it counts as an expense and credits the party, creating or increasing a payable. Income posted to a party ("on account") counts as income and debits the party, creating a receivable. Writing off a balance is posted the same way, as an expense or income against the party.
+16. A party's opening balance is an `opening` entry on their account and is excluded from reports.
+17. A statement of account for a party and currency lists every active line in date order with Debit and Credit columns and a running balance marked Dr or Cr. Lines before the period start form the opening balance b/f; the closing balance c/f equals the party's ledger balance at the end of the period, and opening + total debits − total credits = closing.
+
+## Terminology
+
+The app uses standard bookkeeping terms. Internal identifiers (`person`, `lend`, `borrow`, `collect`, `repay`, `owes_you`, `you_owe`, `settled`) are unchanged so stored data and backups stay compatible.
+
+| Shown in the app                   | Meaning                                                                                          |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Cash & bank                        | Total of your money accounts (Safe, Pocket, Bank) per currency                                   |
+| Expenses, Income, Net income       | Report totals; net income is income less expenses                                                |
+| Party                              | A debtor or creditor account                                                                     |
+| Receivable / Payable / Nil balance | Debit, credit or zero party balance                                                              |
+| Dr / Cr                            | Side of a running balance on a statement                                                         |
+| Opening balance b/f, Closing c/f   | Balance brought forward into and carried forward out of a statement period                       |
+| Reconcile, Book balance            | Compare the ledger balance with a count; any difference is posted as a reconciliation adjustment |

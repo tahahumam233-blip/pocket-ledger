@@ -31,11 +31,11 @@ export default function PersonFormScreen() {
   );
   if (isNew) return <PersonForm key="new" person={null} />;
   if (!existing.data && existing.loading)
-    return <Screen header={{ title: 'Edit person', close: true }} />;
+    return <Screen header={{ title: 'Edit party', close: true }} />;
   if (!existing.data || existing.data.accountClass !== 'person') {
     return (
-      <Screen header={{ title: 'Edit person', close: true }}>
-        <EmptyState icon="person" title="Person not found" message="They may have been removed." />
+      <Screen header={{ title: 'Edit party', close: true }}>
+        <EmptyState icon="person" title="Party not found" message="They may have been removed." />
       </Screen>
     );
   }
@@ -66,7 +66,7 @@ function PersonForm({ person }: { person: Account | null }) {
     if (isNew && starting !== 'none') {
       const parsed = parseAmount(amount, getCurrency(currency).fractionDigits);
       if (!parsed.ok || parsed.minor <= 0) {
-        setError('Enter the amount already owed, or choose "Nothing owed".');
+        setError('Enter the opening balance amount, or choose "None".');
         return;
       }
       startingBalance = {
@@ -124,7 +124,7 @@ function PersonForm({ person }: { person: Account | null }) {
   return (
     <Screen
       header={{
-        title: isNew ? 'New person' : 'Edit person',
+        title: isNew ? 'New party' : 'Edit party',
         close: true,
         right: (
           <Button
@@ -153,7 +153,7 @@ function PersonForm({ person }: { person: Account | null }) {
           testID="person-name"
         />
       </Field>
-      <Field label="Note" hint="Phone number, where you know them from… (optional)">
+      <Field label="Note" hint="Contact details or reference (optional)">
         <TextField
           value={note}
           onChangeText={setNote}
@@ -163,12 +163,15 @@ function PersonForm({ person }: { person: Account | null }) {
       </Field>
 
       {isNew ? (
-        <Field label="Already owed before today?">
+        <Field
+          label="Opening balance"
+          hint="Balance brought forward from before you started this ledger."
+        >
           <SegmentedControl
             options={[
-              { value: 'none', label: 'Nothing' },
-              { value: 'owes_me', label: 'They owe me', color: theme.colors.income },
-              { value: 'i_owe', label: 'I owe them', color: theme.colors.expense },
+              { value: 'none', label: 'None' },
+              { value: 'owes_me', label: 'Receivable', color: theme.colors.income },
+              { value: 'i_owe', label: 'Payable', color: theme.colors.expense },
             ]}
             value={starting}
             onChange={(next: Starting) => setStarting(next)}
@@ -196,7 +199,10 @@ function PersonForm({ person }: { person: Account | null }) {
         </Field>
       ) : null}
 
-      <Field label="Settle by" hint="Optional. Shows how long is left, and when it is overdue.">
+      <Field
+        label="Due date"
+        hint="Optional. Shows the days remaining, and flags the balance when overdue."
+      >
         <DueDateField value={dueDate} onChange={setDueDate} />
       </Field>
 
@@ -229,7 +235,7 @@ function PersonForm({ person }: { person: Account | null }) {
       {person ? (
         person.archivedAt ? (
           <Button
-            label="Restore person"
+            label="Restore party"
             icon="refresh"
             variant="soft"
             onPress={() => void restore()}
@@ -237,7 +243,7 @@ function PersonForm({ person }: { person: Account | null }) {
           />
         ) : (
           <Button
-            label="Remove person"
+            label="Remove party"
             icon="trash"
             variant="danger"
             onPress={() => void remove()}

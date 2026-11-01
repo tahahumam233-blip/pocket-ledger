@@ -343,7 +343,7 @@ export function validateDraft(draft: TransactionDraft, context: DraftContext): D
           errors.push({
             field,
             code: 'person_not_allowed',
-            message: `Use Debt to move money to or from ${account.name}.`,
+            message: `Use a loan entry to post to or from ${account.name}.`,
           });
         }
       }
@@ -399,15 +399,15 @@ export function validateDraft(draft: TransactionDraft, context: DraftContext): D
         errors.push({
           field: 'action',
           code: 'debt_action_invalid',
-          message: 'Choose what happened.',
+          message: 'Choose the loan entry type.',
         });
       }
       if (!draft.personId) {
-        errors.push({ field: 'personId', code: 'person_required', message: 'Choose a person.' });
+        errors.push({ field: 'personId', code: 'person_required', message: 'Choose a party.' });
       } else {
         const person = checkAccount(context, draft.personId, 'personId', errors);
         if (person && person.accountClass !== 'person') {
-          errors.push({ field: 'personId', code: 'not_a_person', message: 'Choose a person.' });
+          errors.push({ field: 'personId', code: 'not_a_person', message: 'Choose a party.' });
         }
       }
       const account = checkAccount(context, draft.accountId, 'accountId', errors);
@@ -415,7 +415,7 @@ export function validateDraft(draft: TransactionDraft, context: DraftContext): D
         errors.push({
           field: 'accountId',
           code: 'person_not_allowed',
-          message: 'Choose your own account for the money.',
+          message: 'Choose a cash or bank account.',
         });
       }
       checkCurrency(context, draft.currency, 'currency', errors);

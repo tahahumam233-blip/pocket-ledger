@@ -5,9 +5,9 @@ import type { DebtAction, TransactionKind } from './ledger';
 import { formatMoney, minorToDecimalString, type MinorUnits } from './money';
 
 /**
- * Debts are tracked on person accounts with one sign convention:
- * a positive balance means the person owes you, a negative balance means
- * you owe them. "You gave" raises the balance, "You got" lowers it.
+ * Debts are tracked on party (person) accounts from your books' point of view:
+ * a positive (debit) balance is a receivable, a negative (credit) balance is a
+ * payable. Debits raise the balance, credits lower it.
  */
 export type DebtStanding = 'owes_you' | 'you_owe' | 'settled';
 
@@ -28,38 +28,38 @@ export type DebtActionInfo = {
 
 export const DEBT_ACTION_INFO: Record<DebtAction, DebtActionInfo> = {
   lend: {
-    label: 'Lend',
-    title: 'I lent money',
-    helper: 'You gave money. They will owe you.',
+    label: 'Loan given',
+    title: 'Loan given',
+    helper: 'Cash out. Debits the party and increases the receivable.',
     icon: 'arrow-up-circle',
     direction: 'gave',
   },
   borrow: {
-    label: 'Borrow',
-    title: 'I borrowed money',
-    helper: 'You got money. You will owe them.',
+    label: 'Loan received',
+    title: 'Loan received',
+    helper: 'Cash in. Credits the party and increases the payable.',
     icon: 'arrow-down-circle',
     direction: 'got',
   },
   collect: {
-    label: 'Got paid back',
-    title: 'They paid me back',
-    helper: 'They returned money they owed you.',
+    label: 'Repayment received',
+    title: 'Repayment received',
+    helper: 'Cash in. Credits the party and reduces the receivable.',
     icon: 'checkmark-circle',
     direction: 'got',
   },
   repay: {
-    label: 'Paid back',
-    title: 'I paid them back',
-    helper: 'You returned money you owed them.',
+    label: 'Repayment made',
+    title: 'Repayment made',
+    helper: 'Cash out. Debits the party and reduces the payable.',
     icon: 'return-up-forward',
     direction: 'gave',
   },
 };
 
 /**
- * Picks the natural action for "I gave" or "I got" given the current balance:
- * giving to someone you owe is a repayment, otherwise it is a loan.
+ * Picks the natural action for a payment out ("gave") or in ("got") given the
+ * current balance: paying a party you owe is a repayment, otherwise a loan.
  */
 export function suggestDebtAction(direction: 'gave' | 'got', balanceMinor: MinorUnits): DebtAction {
   if (direction === 'gave') return balanceMinor < 0 ? 'repay' : 'lend';
@@ -67,11 +67,13 @@ export function suggestDebtAction(direction: 'gave' | 'got', balanceMinor: Minor
 }
 
 export type DebtTotals = {
+  /** Receivables: debit balances on party accounts. */
   owedToYou: Partial<Record<CurrencyCode, MinorUnits>>;
+  /** Payables: credit balances on party accounts, as positive amounts. */
   youOwe: Partial<Record<CurrencyCode, MinorUnits>>;
 };
 
-/** Sums positive balances (owed to you) and negative ones (you owe), per currency. */
+/** Sums debit balances (receivables) and credit balances (payables), per currency. */
 export function summarizeDebts(
   people: readonly { balances: Partial<Record<CurrencyCode, MinorUnits>> }[],
 ): DebtTotals {
@@ -102,9 +104,9 @@ export type StatementSourceLine = {
 
 export type StatementEntry = StatementSourceLine & {
   description: string;
-  /** Amount that raised the balance (you gave), always zero or positive. */
+  /** Debit to the party (raises the balance), always zero or positive. */
   gaveMinor: MinorUnits;
-  /** Amount that lowered the balance (you got), always zero or positive. */
+  /** Credit to the party (lowers the balance), always zero or positive. */
   gotMinor: MinorUnits;
   balanceMinor: MinorUnits;
 };
@@ -124,25 +126,27 @@ export function describeStatementLine(line: StatementSourceLine): string {
   const via = line.counterAccountName;
   switch (line.debtAction) {
     case 'lend':
-      return via ? `Lent from ${via}` : 'Lent';
+      return via ? `Loan given from ${via}` : 'Loan given';
     case 'borrow':
-      return via ? `Borrowed into ${via}` : 'Borrowed';
+      return via ? `Loan received into ${via}` : 'Loan received';
     case 'collect':
-      return via ? `Paid you back into ${via}` : 'Paid you back';
+      return via ? `Repayment received into ${via}` : 'Repayment received';
     case 'repay':
-      return via ? `You paid back from ${via}` : 'You paid back';
+      return via ? `Repayment made from ${via}` : 'Repayment made';
     default:
       break;
   }
   switch (line.kind) {
     case 'expense':
-      return line.categoryName ? `Paid for you: ${line.categoryName}` : 'Paid for you';
+      return line.categoryName
+        ? `Expense paid on your behalf: ${line.categoryName}`
+        : 'Expense paid on your behalf';
     case 'income':
-      return line.categoryName ? `Owed to you: ${line.categoryName}` : 'Owed to you';
+      return line.categoryName ? `Income receivable: ${line.categoryName}` : 'Income receivable';
     case 'opening':
-      return 'Starting balance';
+      return 'Opening balance';
     case 'adjustment':
-      return 'Balance correction';
+      return 'Reconciliation adjustment';
     default:
       return 'Transfer';
   }
@@ -203,7 +207,15 @@ export function buildStatement(
   };
 }
 
-/** "Ali owes you $60.00", "You owe Ali $20.00" or "All settled with Ali". */
+/** "$60.00 Dr", "$20.00 Cr" or "$0.00": a party balance in debit/credit form. */
+export function formatDrCr(balanceMinor: MinorUnits, currency: CurrencyCode): string {
+  const amount = formatMoney(Math.abs(balanceMinor), currency);
+  if (balanceMinor > 0) return `${amount} Dr`;
+  if (balanceMinor < 0) return `${amount} Cr`;
+  return amount;
+}
+
+/** "Receivable from Ali: $60.00", "Payable to Ali: $20.00" or "Nil balance with Ali". */
 export function describeBalance(
   name: string,
   balanceMinor: MinorUnits,
@@ -212,11 +224,11 @@ export function describeBalance(
   const amount = formatMoney(Math.abs(balanceMinor), currency);
   switch (debtStanding(balanceMinor)) {
     case 'owes_you':
-      return `${name} owes you ${amount}`;
+      return `Receivable from ${name}: ${amount}`;
     case 'you_owe':
-      return `You owe ${name} ${amount}`;
+      return `Payable to ${name}: ${amount}`;
     default:
-      return `All settled with ${name}`;
+      return `Nil balance with ${name}`;
   }
 }
 
@@ -234,63 +246,84 @@ export function statementToText(
   options: { appName?: string; today?: IsoDate } = {},
 ): string {
   const money = (minor: MinorUnits) => formatMoney(minor, statement.currency);
+  const drcr = (minor: MinorUnits) => formatDrCr(minor, statement.currency);
   const lines = [
     `Statement of account: ${personName} (${statement.currency})`,
     `Period: ${periodLabel(statement, options.today)}`,
     '',
-    `Opening balance: ${describeBalance(personName, statement.openingMinor, statement.currency)}`,
+    `Opening balance b/f: ${drcr(statement.openingMinor)}`,
   ];
   for (const entry of statement.entries) {
     const movement = entry.gaveMinor
-      ? `You gave ${money(entry.gaveMinor)}`
-      : `You got ${money(entry.gotMinor)}`;
+      ? `Debit ${money(entry.gaveMinor)}`
+      : `Credit ${money(entry.gotMinor)}`;
     const note = entry.note ? ` (${entry.note})` : '';
     lines.push(
-      `${formatDateLabel(entry.postedDate, options.today)}: ${entry.description}${note}. ${movement}. Balance ${money(entry.balanceMinor)}`,
+      `${formatDateLabel(entry.postedDate, options.today)}: ${entry.description}${note}. ${movement}. Balance ${drcr(entry.balanceMinor)}`,
     );
   }
   lines.push(
     '',
-    `Total you gave: ${money(statement.totalGaveMinor)}`,
-    `Total you got: ${money(statement.totalGotMinor)}`,
-    `Closing balance: ${describeBalance(personName, statement.closingMinor, statement.currency)}`,
+    `Total debits: ${money(statement.totalGaveMinor)}`,
+    `Total credits: ${money(statement.totalGotMinor)}`,
+    `Closing balance c/f: ${drcr(statement.closingMinor)}`,
+    describeBalance(personName, statement.closingMinor, statement.currency),
   );
   if (options.appName) lines.push('', `Sent from ${options.appName}`);
   return lines.join('\n');
 }
 
-/** A spreadsheet-friendly statement with a running balance. */
+/** Dr for debit balances, Cr for credit balances, blank for nil. */
+function drCrMark(minor: MinorUnits): string {
+  if (minor > 0) return 'Dr';
+  if (minor < 0) return 'Cr';
+  return '';
+}
+
+/** A spreadsheet-friendly statement: debit, credit and a running Dr/Cr balance. */
 export function statementToCsv(statement: Statement): string {
   const digits = getCurrency(statement.currency).fractionDigits;
   const amount = (minor: MinorUnits) => (minor ? minorToDecimalString(minor, digits) : '');
+  const balance = (minor: MinorUnits) => minorToDecimalString(Math.abs(minor), digits);
   const rows = [
     [
       'Date',
       'Description',
       'Note',
-      `You gave (${statement.currency})`,
-      `You got (${statement.currency})`,
-      'Balance',
+      `Debit (${statement.currency})`,
+      `Credit (${statement.currency})`,
+      `Balance (${statement.currency})`,
+      'Dr/Cr',
     ],
-    ['', 'Opening balance', '', '', '', minorToDecimalString(statement.openingMinor, digits)],
+    [
+      '',
+      'Opening balance b/f',
+      '',
+      '',
+      '',
+      balance(statement.openingMinor),
+      drCrMark(statement.openingMinor),
+    ],
     ...statement.entries.map((entry) => [
       entry.postedDate,
       entry.description,
       entry.note,
       amount(entry.gaveMinor),
       amount(entry.gotMinor),
-      minorToDecimalString(entry.balanceMinor, digits),
+      balance(entry.balanceMinor),
+      drCrMark(entry.balanceMinor),
     ]),
     [
       '',
-      'Closing balance',
+      'Closing balance c/f',
       '',
       minorToDecimalString(statement.totalGaveMinor, digits),
       minorToDecimalString(statement.totalGotMinor, digits),
-      minorToDecimalString(statement.closingMinor, digits),
+      balance(statement.closingMinor),
+      drCrMark(statement.closingMinor),
     ],
   ];
-  return `﻿${rows.map((row) => row.map(escapeCsvCell).join(',')).join('\r\n')}\r\n`;
+  return `\uFEFF${rows.map((row) => row.map(escapeCsvCell).join(',')).join('\r\n')}\r\n`;
 }
 
 export type DueStatus = { label: string; overdue: boolean };
@@ -309,5 +342,5 @@ export function describeDue(
   if (days === 1) return { label: 'Due tomorrow', overdue: false };
   if (days > 1 && days <= 30) return { label: `Due in ${days} days`, overdue: false };
   if (days > 30) return { label: `Due ${formatDateLabel(dueDate, today)}`, overdue: false };
-  return { label: days === -1 ? '1 day overdue' : `${-days} days overdue`, overdue: true };
+  return { label: days === -1 ? 'Overdue by 1 day' : `Overdue by ${-days} days`, overdue: true };
 }

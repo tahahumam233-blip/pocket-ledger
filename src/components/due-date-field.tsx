@@ -44,7 +44,7 @@ export function DueDateField({ value, onChange }: DueDateFieldProps) {
           setOpen(true);
         }}
       />
-      <BottomSheet visible={open} onClose={() => setOpen(false)} title="Settle by" scroll={false}>
+      <BottomSheet visible={open} onClose={() => setOpen(false)} title="Due date" scroll={false}>
         <DateTimePicker
           value={parseIsoDate(draft)}
           mode="date"

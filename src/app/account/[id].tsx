@@ -98,7 +98,7 @@ export default function AccountDetailScreen() {
                 hitSlop={6}
               >
                 <AppText variant="captionStrong" tone="primary">
-                  Adjust
+                  Reconcile
                 </AppText>
               </PressableScale>
             </View>

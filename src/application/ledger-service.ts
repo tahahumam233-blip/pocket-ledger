@@ -192,7 +192,7 @@ export function createLedgerService({ repos, clock, newId }: LedgerServiceDeps) 
         currency: input.currency,
         amountMinor: difference,
         postedDate: input.postedDate,
-        note: input.note?.trim() || 'Balance adjustment',
+        note: input.note?.trim() || 'Reconciliation adjustment',
       });
       return { difference, transaction };
     },

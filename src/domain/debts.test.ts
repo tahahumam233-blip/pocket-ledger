@@ -4,6 +4,7 @@ import {
   buildStatement,
   debtStanding,
   describeDue,
+  formatDrCr,
   describeBalance,
   describeStatementLine,
   type StatementSourceLine,
@@ -31,9 +32,9 @@ describe('debt standing and suggestions', () => {
     expect(debtStanding(500)).toBe('owes_you');
     expect(debtStanding(-1)).toBe('you_owe');
     expect(debtStanding(0)).toBe('settled');
-    expect(describeBalance('Ali', 6000, 'USD')).toBe('Ali owes you $60.00');
-    expect(describeBalance('Sara', -25000, 'IQD')).toBe('You owe Sara 25,000 IQD');
-    expect(describeBalance('Omar', 0, 'USD')).toBe('All settled with Omar');
+    expect(describeBalance('Ali', 6000, 'USD')).toBe('Receivable from Ali: $60.00');
+    expect(describeBalance('Sara', -25000, 'IQD')).toBe('Payable to Sara: 25,000 IQD');
+    expect(describeBalance('Omar', 0, 'USD')).toBe('Nil balance with Omar');
   });
 
   it('suggests lending or repaying, borrowing or collecting from the balance', () => {
@@ -84,9 +85,9 @@ describe('statement of account', () => {
     expect(statement.totalGotMinor).toBe(6500);
     expect(statement.closingMinor).toBe(8500);
     expect(statement.entries.map((entry) => entry.description)).toEqual([
-      'Lent from Pocket',
-      'Paid you back into Bank',
-      'Paid for you: Food & Drink',
+      'Loan given from Pocket',
+      'Repayment received into Bank',
+      'Expense paid on your behalf: Food & Drink',
     ]);
   });
 
@@ -113,18 +114,18 @@ describe('statement of account', () => {
     const base = line({ postedDate: '2026-10-01', amountMinor: 1 });
     expect(
       describeStatementLine({ ...base, debtAction: 'borrow', counterAccountName: 'Safe' }),
-    ).toBe('Borrowed into Safe');
+    ).toBe('Loan received into Safe');
     expect(describeStatementLine({ ...base, debtAction: 'repay', counterAccountName: null })).toBe(
-      'You paid back',
+      'Repayment made',
     );
     expect(
       describeStatementLine({ ...base, debtAction: null, kind: 'income', categoryName: 'Salary' }),
-    ).toBe('Owed to you: Salary');
+    ).toBe('Income receivable: Salary');
     expect(describeStatementLine({ ...base, debtAction: null, kind: 'opening' })).toBe(
-      'Starting balance',
+      'Opening balance',
     );
     expect(describeStatementLine({ ...base, debtAction: null, kind: 'adjustment' })).toBe(
-      'Balance correction',
+      'Reconciliation adjustment',
     );
   });
 
@@ -135,17 +136,20 @@ describe('statement of account', () => {
       today: '2026-11-01',
     });
     expect(text).toContain('Statement of account: Ali (USD)');
-    expect(text).toContain('Opening balance: Ali owes you $50.00');
-    expect(text).toContain('Lent from Pocket (Rent help). You gave $100.00. Balance $150.00');
-    expect(text).toContain('Closing balance: Ali owes you $85.00');
+    expect(text).toContain('Opening balance b/f: $50.00 Dr');
+    expect(text).toContain('Loan given from Pocket (Rent help). Debit $100.00. Balance $150.00 Dr');
+    expect(text).toContain('Closing balance c/f: $85.00 Dr');
+    expect(text).toContain('Receivable from Ali: $85.00');
+    expect(text).toContain('Total debits: $100.00');
+    expect(text).toContain('Total credits: $65.00');
     expect(text).toContain('Sent from Pocket Ledger');
 
     const csv = statementToCsv(statement).replace('﻿', '').trim().split('\r\n');
-    expect(csv[0]).toBe('Date,Description,Note,You gave (USD),You got (USD),Balance');
-    expect(csv[1]).toBe(',Opening balance,,,,50.00');
-    expect(csv[2]).toBe('2026-10-02,Lent from Pocket,Rent help,100.00,,150.00');
-    expect(csv[4]).toBe('2026-10-15,Paid for you: Food & Drink,,,25.00,85.00');
-    expect(csv[5]).toBe(',Closing balance,,100.00,65.00,85.00');
+    expect(csv[0]).toBe('Date,Description,Note,Debit (USD),Credit (USD),Balance (USD),Dr/Cr');
+    expect(csv[1]).toBe(',Opening balance b/f,,,,50.00,Dr');
+    expect(csv[2]).toBe('2026-10-02,Loan given from Pocket,Rent help,100.00,,150.00,Dr');
+    expect(csv[4]).toBe('2026-10-15,Expense paid on your behalf: Food & Drink,,,25.00,85.00,Dr');
+    expect(csv[5]).toBe(',Closing balance c/f,,100.00,65.00,85.00,Dr');
   });
 });
 
@@ -168,12 +172,20 @@ describe('due dates', () => {
       overdue: false,
     });
     expect(describeDue('2026-10-31', today, true)).toEqual({
-      label: '1 day overdue',
+      label: 'Overdue by 1 day',
       overdue: true,
     });
     expect(describeDue('2026-10-20', today, true)).toEqual({
-      label: '12 days overdue',
+      label: 'Overdue by 12 days',
       overdue: true,
     });
+  });
+});
+
+describe('debit and credit balances', () => {
+  it('marks receivables Dr and payables Cr', () => {
+    expect(formatDrCr(6000, 'USD')).toBe('$60.00 Dr');
+    expect(formatDrCr(-2500, 'USD')).toBe('$25.00 Cr');
+    expect(formatDrCr(0, 'USD')).toBe('$0.00');
   });
 });

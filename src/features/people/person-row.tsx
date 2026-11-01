@@ -17,7 +17,7 @@ type PersonRowProps = {
   last?: boolean;
 };
 
-/** One person with what they owe or what you owe them, per currency. */
+/** One party with its receivable or payable balance, per currency. */
 export function PersonRow({ person, balances, currencies, today, onPress, last }: PersonRowProps) {
   const theme = useTheme();
   const owing = currencies.filter((currency) => (balances[currency] ?? 0) !== 0);
@@ -66,7 +66,7 @@ export function PersonRow({ person, balances, currencies, today, onPress, last }
           ))
         ) : (
           <AppText variant="amountSmall" tone="subtle">
-            Settled
+            Nil balance
           </AppText>
         )}
       </View>

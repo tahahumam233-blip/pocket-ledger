@@ -357,6 +357,7 @@ describe.each(DRIVERS)('with %s', (_name, makeDriver) => {
         postedDate: '2026-10-20',
       });
       expect(result.difference).toBe(-750);
+      expect(result.transaction?.note).toBe('Reconciliation adjustment');
       expect(await balance(pocket.id, 'USD')).toBe(9250);
       const again = await services.ledger.adjustBalance({
         accountId: pocket.id,
@@ -710,9 +711,9 @@ describe.each(DRIVERS)('with %s', (_name, makeDriver) => {
       });
       expect(statement.openingMinor).toBe(5000);
       expect(statement.entries.map((entry) => [entry.description, entry.balanceMinor])).toEqual([
-        ['Lent from Pocket', 15000],
-        ['Paid you back into Bank', 11000],
-        ['Paid for you: Food & Drink', 8500],
+        ['Loan given from Pocket', 15000],
+        ['Repayment received into Bank', 11000],
+        ['Expense paid on your behalf: Food & Drink', 8500],
       ]);
       expect(statement.closingMinor).toBe(8500);
       expect(statement.closingMinor).toBe(await balance(ali.id, 'USD'));

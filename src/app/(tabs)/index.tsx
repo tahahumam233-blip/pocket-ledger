@@ -64,7 +64,7 @@ export default function HomeScreen() {
     const parts = settings.currencies
       .filter((code) => (totalsByCurrency[code] ?? 0) > 0)
       .map((code) => formatMoney(totalsByCurrency[code] ?? 0, code));
-    return parts.length ? parts.join('  ·  ') : 'Nothing yet';
+    return parts.length ? parts.join('  ·  ') : 'Nil';
   };
 
   const quickActions = [
@@ -81,7 +81,7 @@ export default function HomeScreen() {
       onPress: () => router.push({ pathname: '/transaction/new', params: { kind: 'income' } }),
     },
     {
-      label: 'Lend/Borrow',
+      label: 'Loan',
       icon: 'people',
       color: theme.colors.transfer,
       onPress: () => router.push({ pathname: '/transaction/new', params: { kind: 'debt' } }),
@@ -130,7 +130,7 @@ export default function HomeScreen() {
       >
         <View style={styles.heroGlow} />
         <AppText variant="micro" tone="heroMuted">
-          Total balance
+          Cash & bank
         </AppText>
         {primary ? (
           <MoneyText
@@ -155,7 +155,7 @@ export default function HomeScreen() {
         <View style={[styles.heroStats, { borderTopColor: 'rgba(255,255,255,0.18)' }]}>
           <View style={styles.heroStat}>
             <AppText variant="micro" tone="heroMuted">
-              Spent today
+              Expenses today
             </AppText>
             <AppText variant="captionStrong" tone="hero">
               {spendLine(spentToday)}
@@ -163,7 +163,7 @@ export default function HomeScreen() {
           </View>
           <View style={styles.heroStat}>
             <AppText variant="micro" tone="heroMuted">
-              This month
+              Month to date
             </AppText>
             <AppText variant="captionStrong" tone="hero">
               {spendLine(spentThisMonth)}
@@ -253,21 +253,21 @@ export default function HomeScreen() {
 
       <View style={styles.section}>
         <SectionHeader
-          title="People"
+          title="Receivables & payables"
           actionLabel={snapshot.people.length > 0 ? 'See all' : undefined}
           onAction={() => router.push('/people')}
         />
         {snapshot.people.length === 0 ? (
           <Card
             onPress={() => router.push('/people')}
-            accessibilityLabel="Track lending and borrowing"
+            accessibilityLabel="Track receivables and payables"
           >
             <View style={styles.bannerRow}>
               <IconBadge icon="people" color={theme.colors.transfer} size={40} outline />
               <View style={styles.bannerText}>
-                <AppText variant="bodyStrong">Lend or borrow money?</AppText>
+                <AppText variant="bodyStrong">Loans given or received?</AppText>
                 <AppText variant="caption" tone="muted">
-                  Track who owes you and whom you owe, with a statement for each person.
+                  Track receivables and payables, with a statement of account for each party.
                 </AppText>
               </View>
               <Icon name="chevron-forward" size={18} color={theme.colors.textMuted} />
@@ -310,7 +310,7 @@ export default function HomeScreen() {
             <EmptyState
               compact
               icon="sparkles"
-              title="No spending recorded yet"
+              title="No entries posted yet"
               message="Add your first expense with the + button, or snap a receipt to record it later."
               actionLabel="Add an expense"
               onAction={() =>

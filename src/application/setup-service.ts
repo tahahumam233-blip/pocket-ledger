@@ -217,7 +217,7 @@ export function createSetupService(deps: {
           (person) => !person.archivedAt && person.name.toLowerCase() === name.toLowerCase(),
         )
       ) {
-        throw new Error(`${name} is already in your people.`);
+        throw new Error(`${name} is already a party.`);
       }
       if (input.dueDate && !isValidIsoDate(input.dueDate)) throw new Error('Pick a valid date.');
       const person: Account = {
@@ -258,8 +258,7 @@ export function createSetupService(deps: {
       changes: { name?: string; note?: string; dueDate?: IsoDate | null; color?: string },
     ): Promise<void> {
       const person = await repos.accounts.getById(personId);
-      if (!person || person.accountClass !== 'person')
-        throw new Error('That person was not found.');
+      if (!person || person.accountClass !== 'person') throw new Error('That party was not found.');
       if (changes.name !== undefined && !changes.name.trim()) throw new Error('Enter a name.');
       if (changes.dueDate && !isValidIsoDate(changes.dueDate))
         throw new Error('Pick a valid date.');

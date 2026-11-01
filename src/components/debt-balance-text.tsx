@@ -5,11 +5,11 @@ import { AppText, type AppTextProps } from './app-text';
 type DebtBalanceTextProps = Omit<AppTextProps, 'children'> & {
   balanceMinor: number;
   currency: string;
-  /** Short form ("Owes you $60.00") or with the name ("Ali owes you $60.00"). */
+  /** Short form ("Receivable $60.00") or with the party ("Receivable from Ali $60.00"). */
   name?: string;
 };
 
-/** Shows a person balance in words, green when they owe you and red when you owe them. */
+/** Shows a party balance as a receivable (green), a payable (red) or a nil balance. */
 export function DebtBalanceText({
   balanceMinor,
   currency,
@@ -22,13 +22,13 @@ export function DebtBalanceText({
   const text =
     standing === 'owes_you'
       ? name
-        ? `${name} owes you ${amount}`
-        : `Owes you ${amount}`
+        ? `Receivable from ${name} ${amount}`
+        : `Receivable ${amount}`
       : standing === 'you_owe'
         ? name
-          ? `You owe ${name} ${amount}`
-          : `You owe ${amount}`
-        : 'Settled';
+          ? `Payable to ${name} ${amount}`
+          : `Payable ${amount}`
+        : 'Nil balance';
   const tone = standing === 'owes_you' ? 'income' : standing === 'you_owe' ? 'expense' : 'subtle';
   return (
     <AppText variant={variant} tone={tone} {...rest}>

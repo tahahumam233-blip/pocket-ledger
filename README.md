@@ -5,7 +5,7 @@ A private, offline spending tracker for iPhone, built with Expo and React Native
 - **Two currencies, never mixed.** Pick a primary and a secondary currency; every total is shown per currency.
 - **Safe, Pocket and Bank.** Three accounts out of the box (add more if you like), each holding both currencies.
 - **Snap receipts now, add the amount later.** Photos wait in an inbox until you record them.
-- **Lend and borrow.** Track who owes you and whom you owe, record repayments, and share a statement of account for each person.
+- **Receivables and payables.** Post loans given and received and their repayments, and share a statement of account (debit, credit, Dr/Cr balance) for each party.
 - **A nightly reminder** at the time you choose, as a daily Calendar alert (or a notification in the optional native build).
 - **Reports** by category and by month, transfers and exchanges between currencies, balance adjustments, CSV export, backup and restore with photos, dark mode, and an optional Face ID lock in the native build.
 - **No account, no cloud, no ads.** Everything stays on the phone.
@@ -25,13 +25,13 @@ Every step, including the one-time publishing setup and backups, is in [docs/GET
 | Area       | Behaviour                                                                                                                                                                                   |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Onboarding | Choose two currencies (the phone's local currency is pre-selected), turn on Safe / Pocket / Bank, enter opening balances, set the reminder time.                                            |
-| Home       | Total balance per currency, spent today and this month, account cards, quick actions, pending-receipt banner, recent entries.                                                               |
+| Home       | Cash & bank per currency, expenses today and month to date, account cards, quick actions, pending-receipt banner, recent entries.                                                           |
 | Add        | Expense, income or transfer with a large keypad, currency toggle, account and category pickers, date chips, note and receipt photos. Transfers can be exchanges between the two currencies. |
 | Activity   | Month-by-month list grouped by day with search, type and currency filters, and per-month totals.                                                                                            |
 | Receipts   | Camera or photo library capture into an inbox; "Add the amount" turns a receipt into an expense and links the photo.                                                                        |
-| Reports    | Spent, received and net per currency, spending by category with a ring chart, and a six-month trend.                                                                                        |
-| Accounts   | Balances per currency, history, and "Adjust" to reconcile to what you actually counted.                                                                                                     |
-| People     | Everyone you lend to or borrow from, with what they owe you or what you owe them, a settle-by date and a statement of account you can share.                                                |
+| Reports    | Expenses, income and net income per currency, expenses by category with a ring chart, and a six-month trend.                                                                                |
+| Accounts   | Balances per currency, history, and "Reconcile" to post an adjustment to the counted balance.                                                                                               |
+| Parties    | Receivables & payables: each debtor or creditor with a receivable or payable balance, a due date and a statement of account you can share.                                                  |
 | Settings   | Currencies, reminder time, appearance, app lock, accounts, categories, CSV export, privacy notes, erase all data.                                                                           |
 
 ## Development

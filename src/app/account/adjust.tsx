@@ -49,13 +49,16 @@ export default function AdjustBalanceScreen() {
         }),
       );
       haptics.success();
-      showToast(result.transaction ? 'Balance adjusted.' : 'Already matches. Nothing to change.', {
-        tone: 'success',
-      });
+      showToast(
+        result.transaction ? 'Adjustment posted.' : 'Balances agree. No adjustment needed.',
+        {
+          tone: 'success',
+        },
+      );
       if (router.canGoBack()) router.back();
     } catch (caught) {
       haptics.error();
-      showToast(caught instanceof Error ? caught.message : 'Could not adjust.', { tone: 'danger' });
+      showToast(caught instanceof Error ? caught.message : 'Could not post.', { tone: 'danger' });
     } finally {
       setSaving(false);
     }
@@ -65,24 +68,24 @@ export default function AdjustBalanceScreen() {
     <Screen
       scroll={false}
       edges={['top', 'bottom']}
-      header={{ title: `Adjust ${entry?.account.name ?? 'balance'}`, close: true }}
+      header={{ title: `Reconcile ${entry?.account.name ?? 'account'}`, close: true }}
       contentStyle={styles.content}
     >
       <View style={styles.body}>
         <Card muted>
           <AppText variant="caption" tone="muted">
-            The ledger says this account holds
+            Book balance
           </AppText>
           <MoneyText amountMinor={ledger} currency={code} variant="amountLarge" />
           <AppText variant="caption" tone="muted">
-            Enter what you actually counted. The difference is recorded as an adjustment; nothing in
-            your history is changed.
+            Enter the counted or statement balance. Any difference is posted as a reconciliation
+            adjustment; existing entries are not changed.
           </AppText>
         </Card>
 
         <View style={styles.amountBlock}>
           <AppText variant="micro" tone="muted">
-            Actual {code} balance
+            Counted {code} balance
           </AppText>
           <View style={styles.amountRow}>
             {negative ? <AppText variant="heading">−</AppText> : null}
@@ -104,7 +107,7 @@ export default function AdjustBalanceScreen() {
               onPress={() => setNegative((value) => !value)}
             />
             <Chip
-              label="Use ledger value"
+              label="Use book balance"
               size="sm"
               onPress={() => {
                 setNegative(ledger < 0);
@@ -122,7 +125,7 @@ export default function AdjustBalanceScreen() {
         {difference !== null ? (
           <Card>
             <View style={styles.diffRow}>
-              <AppText variant="bodyMedium">Adjustment to record</AppText>
+              <AppText variant="bodyMedium">Reconciliation difference</AppText>
               <MoneyText amountMinor={difference} currency={code} variant="amount" signed />
             </View>
           </Card>
@@ -131,11 +134,11 @@ export default function AdjustBalanceScreen() {
         <TextField
           value={note}
           onChangeText={setNote}
-          placeholder="Note (optional), e.g. counted the safe"
+          placeholder="Note (optional), e.g. safe count"
           returnKeyType="done"
         />
         <Button
-          label={difference === 0 ? 'Nothing to adjust' : 'Record adjustment'}
+          label={difference === 0 ? 'Balances agree' : 'Post adjustment'}
           onPress={() => void save()}
           disabled={actual === null || difference === 0}
           loading={saving}
