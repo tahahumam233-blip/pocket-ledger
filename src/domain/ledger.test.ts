@@ -9,6 +9,7 @@ import {
   isBalancedTransfer,
   type TransactionWithLines,
   validateDraft,
+  moneyAccountChange,
 } from './ledger';
 
 const account = (
@@ -520,5 +521,23 @@ describe('debts', () => {
       postedDate: '2026-10-20',
       note: 'Car repair',
     });
+  });
+});
+
+describe('moneyAccountChange', () => {
+  it('reduces the account for money going out and increases it for money coming in', () => {
+    expect(moneyAccountChange({ kind: 'expense' }, 2500)).toBe(-2500);
+    expect(moneyAccountChange({ kind: 'income' }, 2500)).toBe(2500);
+    expect(moneyAccountChange({ kind: 'transfer', side: 'from' }, 1000)).toBe(-1000);
+    expect(moneyAccountChange({ kind: 'transfer', side: 'to' }, 1000)).toBe(1000);
+    expect(moneyAccountChange({ kind: 'debt', action: 'lend' }, 6000)).toBe(-6000);
+    expect(moneyAccountChange({ kind: 'debt', action: 'repay' }, 6000)).toBe(-6000);
+    expect(moneyAccountChange({ kind: 'debt', action: 'borrow' }, 6000)).toBe(6000);
+    expect(moneyAccountChange({ kind: 'debt', action: 'collect' }, 6000)).toBe(6000);
+  });
+
+  it('ignores the sign of the amount it is given', () => {
+    expect(moneyAccountChange({ kind: 'expense' }, -2500)).toBe(-2500);
+    expect(moneyAccountChange({ kind: 'income' }, 0)).toBe(0);
   });
 });

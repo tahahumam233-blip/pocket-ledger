@@ -646,6 +646,77 @@ describe.each(DRIVERS)('with %s', (_name, makeDriver) => {
       expect(home.people.map((person) => person.name)).toEqual(['Ali', 'Sara']);
     });
 
+    it('remembers the last cash or bank account per kind of entry, ignoring system entries', async () => {
+      const { safe, pocket, bank, food, salary, ali } = await withPeople();
+      // Onboarding only wrote opening balances, which never count as a choice.
+      expect((await services.queries.home()).lastAccountIds).toEqual({});
+
+      await services.ledger.createTransaction({
+        kind: 'expense',
+        accountId: pocket.id,
+        currency: 'USD',
+        amountMinor: 500,
+        categoryId: food.id,
+        postedDate: '2026-10-02',
+        note: '',
+      });
+      await services.ledger.createTransaction({
+        kind: 'income',
+        accountId: bank.id,
+        currency: 'USD',
+        amountMinor: 90000,
+        categoryId: salary.id,
+        postedDate: '2026-10-01',
+        note: '',
+      });
+      await services.ledger.createTransaction({
+        kind: 'transfer',
+        fromAccountId: safe.id,
+        toAccountId: pocket.id,
+        currency: 'USD',
+        amountMinor: 1000,
+        postedDate: '2026-10-03',
+        note: '',
+      });
+      await debt('lend', ali.id, bank.id, 2000, '2026-10-04');
+      // Later system entries and an expense posted to a party do not move the defaults.
+      await services.ledger.adjustBalance({
+        accountId: safe.id,
+        currency: 'USD',
+        actualMinor: 1,
+        postedDate: '2026-10-05',
+      });
+      await services.ledger.createTransaction({
+        kind: 'expense',
+        accountId: ali.id,
+        currency: 'USD',
+        amountMinor: 700,
+        categoryId: food.id,
+        postedDate: '2026-10-06',
+        note: '',
+      });
+      const deleted = await services.ledger.createTransaction({
+        kind: 'expense',
+        accountId: safe.id,
+        currency: 'USD',
+        amountMinor: 300,
+        categoryId: food.id,
+        postedDate: '2026-10-07',
+        note: '',
+      });
+      await services.ledger.deleteTransaction(deleted.id);
+
+      expect((await services.queries.home()).lastAccountIds).toEqual({
+        expense: pocket.id,
+        income: bank.id,
+        transfer: safe.id,
+        debt: bank.id,
+      });
+
+      await services.setup.removeAccount(pocket.id);
+      expect((await services.queries.home()).lastAccountIds.expense).toBeUndefined();
+    });
+
     it('borrowing and paying back track what you owe', async () => {
       const { safe, sara } = await withPeople();
       expect(await balance(sara.id, 'USD')).toBe(-5000);

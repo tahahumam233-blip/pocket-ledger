@@ -1,4 +1,4 @@
-import type { BalanceRow, Receipt, Repositories } from '@/data';
+import type { BalanceRow, EntryKind, Receipt, Repositories } from '@/data';
 import {
   type Account,
   buildStatement,
@@ -49,6 +49,8 @@ export type HomeSnapshot = {
   spentToday: Partial<Record<CurrencyCode, MinorUnits>>;
   spentThisMonth: Partial<Record<CurrencyCode, MinorUnits>>;
   recentTransactions: TransactionWithLines[];
+  /** The account last used for each kind of entry, used as the form's default. */
+  lastAccountIds: Partial<Record<EntryKind, string>>;
   pendingReceipts: number;
   today: IsoDate;
   /** True once the ledger is a week old and the last backup is more than 30 days old. */
@@ -119,6 +121,7 @@ export function createQueries(repos: Repositories, clock?: Clock) {
         monthLines,
         recent,
         pendingReceipts,
+        lastAccountIds,
       ] = await Promise.all([
         repos.settings.getAll(),
         repos.accounts.list({ includeArchived: true }),
@@ -127,6 +130,7 @@ export function createQueries(repos: Repositories, clock?: Clock) {
         repos.reports.reportLines(month.start, month.end),
         repos.transactions.list({ limit: 8 }),
         repos.receipts.countPending(),
+        repos.transactions.lastAccountByEntryKind(),
       ]);
       const settings = parseSettings(settingsRecord);
       const accounts = allAccounts.filter(
@@ -151,6 +155,7 @@ export function createQueries(repos: Repositories, clock?: Clock) {
         spentToday: toRecord(expenseTotalsByCurrency(todayLines)),
         spentThisMonth: toRecord(expenseTotalsByCurrency(monthLines)),
         recentTransactions: recent,
+        lastAccountIds,
         pendingReceipts,
         today,
         backupDue: isBackupDue(accounts, settings.lastBackupAt, now()),

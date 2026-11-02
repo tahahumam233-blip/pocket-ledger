@@ -13,6 +13,7 @@ Not started; recorded so nothing is forgotten.
 - Automated UI tests on device (Maestro) in addition to the web walkthrough.
 - Reports: weekday breakdown and per-account spending.
 - Purge of soft-deleted transactions older than a chosen age (repository support exists).
+- Remember the usual account per category (for example Rent from Bank), or a setting to always ask for the account with nothing preselected.
 - Settle a debt in the other currency (an exchange on the person's account).
 - Calendar alert for a person's "settle by" date in the web app.
 - Per-loan due dates and interest on loans.

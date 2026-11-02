@@ -12,6 +12,11 @@ Run on a real phone after changes to screens, storage or notifications.
 ## Recording
 
 - [ ] Add an expense with the keypad in each currency; Home and the account card update.
+- [ ] The add form shows every cash and bank account as a tile with its balance under "Paid from" (expense), "Received into" (income), "From" and "To" (transfer); the chosen tile is filled in its colour with a tick, and VoiceOver reads it as selected.
+- [ ] Typing an amount shows "Account before → after"; an expense larger than the balance shows the amber "below zero" warning but still saves.
+- [ ] The default account is the one the last expense (or income, transfer, loan) used; opening balances and reconciliations never change it; switching type before touching the tiles follows that type's last account.
+- [ ] After saving, the message names the account ("Expense of $25.00 posted from Pocket") and Edit opens the entry.
+- [ ] "Paid by a party instead" swaps the tiles for a party row; "Use cash or bank instead" brings them back.
 - [ ] Add income; the account balance rises and Reports shows it under Received.
 - [ ] Transfer between two accounts; totals per currency are unchanged.
 - [ ] Exchange USD to the second currency; both account balances change in their own currency and Reports is unaffected.

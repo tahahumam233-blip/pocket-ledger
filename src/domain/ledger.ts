@@ -40,6 +40,32 @@ export function debtGoesToPerson(action: DebtAction): boolean {
   return action === 'lend' || action === 'repay';
 }
 
+/** Which side of an entry a cash or bank account sits on, as chosen in the entry form. */
+export type MoneySide =
+  | { kind: 'expense' | 'income' }
+  | { kind: 'transfer'; side: 'from' | 'to' }
+  | { kind: 'debt'; action: DebtAction };
+
+/**
+ * The signed change an entry makes to the chosen cash or bank account, used to
+ * preview its balance before posting. Expenses, transfers out, loans given and
+ * repayments made reduce it; income, transfers in, loans received and
+ * repayments received increase it.
+ */
+export function moneyAccountChange(side: MoneySide, amountMinor: MinorUnits): MinorUnits {
+  const amount = Math.abs(amountMinor);
+  switch (side.kind) {
+    case 'expense':
+      return -amount;
+    case 'income':
+      return amount;
+    case 'transfer':
+      return side.side === 'from' ? -amount : amount;
+    case 'debt':
+      return debtGoesToPerson(side.action) ? -amount : amount;
+  }
+}
+
 export type CategoryKind = 'expense' | 'income';
 
 export type Category = {

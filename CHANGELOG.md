@@ -2,6 +2,14 @@
 
 ## 1.0.0 (unreleased)
 
+### Changed: choosing the account
+
+- The add form shows every cash and bank account as a tile in its own colour with its balance, under "Paid from", "Received into", or "From" and "To", instead of a single Account row.
+- A before → after line shows the effect on the chosen account, with an amber warning when a payment would take it below zero.
+- The pre-selected account is the one last used for the same kind of entry; opening balances, reconciliations and entries posted to parties no longer change it.
+- "Paid by a party instead" and "On account from a party" are separate, explicit choices.
+- The confirmation names the account ("Expense of $25.00 posted from Pocket") and has an Edit button.
+
 ### Changed: accounting terminology
 
 - Standard bookkeeping wording throughout: Receivables & payables, party, receivable / payable / nil balance, Loan given, Loan received, Repayment received, Repayment made.

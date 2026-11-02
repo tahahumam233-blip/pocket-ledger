@@ -35,9 +35,12 @@ import {
   debtGoesToPerson,
   draftFromTransaction,
   formatAmountDraft,
+  formatMoney,
   getCurrency,
   LedgerError,
   minorToDecimalString,
+  moneyAccountChange,
+  type MoneySide,
   parseAmount,
   todayIsoDate,
   type TransactionDraft,
@@ -49,6 +52,8 @@ import { captureFromCamera, pickFromLibrary } from '@/platform/image-capture';
 import { useLedgerStore, useServices } from '@/state/ledger-store';
 import { showToast } from '@/state/toast-store';
 import { KIND_LABELS } from '@/utils/transaction-presenter';
+
+import { AccountChooser } from './account-chooser';
 
 type EditableKind = 'expense' | 'income' | 'transfer' | 'debt';
 
@@ -76,10 +81,10 @@ const KIND_OPTIONS: { value: EditableKind; label: string }[] = [
 ];
 
 const DEBT_TOASTS: Record<DebtAction, string> = {
-  lend: 'Loan given posted.',
-  borrow: 'Loan received posted.',
-  collect: 'Repayment received posted.',
-  repay: 'Repayment made posted.',
+  lend: 'Loan given posted:',
+  borrow: 'Loan received posted:',
+  collect: 'Repayment received posted:',
+  repay: 'Repayment made posted:',
 };
 
 function trimDraft(decimal: string): string {
@@ -131,6 +136,16 @@ export function TransactionForm({
     [snapshot?.accountBalances, snapshot?.peopleBalances],
   );
   const recent = snapshot?.recentTransactions ?? [];
+  const lastAccountIds = snapshot?.lastAccountIds;
+  /** The account last used for this kind of entry, then for any entry, then the first one. */
+  const defaultAccountFor = (entry: EditableKind): string =>
+    lastUsed(accounts, [
+      lastAccountIds?.[entry],
+      lastAccountIds?.expense,
+      lastAccountIds?.income,
+      lastAccountIds?.transfer,
+      lastAccountIds?.debt,
+    ])?.id ?? '';
   const existingDraft = transaction ? draftFromTransaction(transaction) : null;
   const fixedKind: TransactionKind | null =
     transaction && (transaction.kind === 'opening' || transaction.kind === 'adjustment')
@@ -198,15 +213,17 @@ export function TransactionForm({
       return existingDraft.kind === 'transfer'
         ? existingDraft.fromAccountId
         : existingDraft.accountId;
-    const recentAccountIds = recent.map((item) => item.lines[0]?.accountId);
-    return initialAccountId ?? lastUsed(accounts, recentAccountIds)?.id ?? '';
+    return initialAccountId ?? defaultAccountFor(initialKind);
   });
   const [toAccountId, setToAccountId] = useState<string>(() => {
     if (existingDraft?.kind === 'transfer') return existingDraft.toAccountId;
-    return (
-      accounts.find((account) => account.id !== (initialAccountId ?? accounts[0]?.id))?.id ?? ''
-    );
+    const from = initialAccountId ?? defaultAccountFor(initialKind);
+    return accounts.find((account) => account.id !== from)?.id ?? '';
   });
+  /** Once the account is picked by hand it stays put; until then it follows the entry kind. */
+  const [accountTouched, setAccountTouched] = useState(
+    () => Boolean(existingDraft) || Boolean(initialAccountId),
+  );
   const [categoryIds, setCategoryIds] = useState<Record<'expense' | 'income', string>>(() => {
     const pick = (target: 'expense' | 'income') => {
       if (
@@ -231,7 +248,7 @@ export function TransactionForm({
   const [receipts, setReceipts] = useState<Receipt[]>(existingReceipts);
   const [pendingReceipt, setPendingReceipt] = useState<Receipt | null>(null);
   const [picker, setPicker] = useState<
-    'account' | 'toAccount' | 'category' | 'attach' | 'person' | null
+    'account' | 'category' | 'attach' | 'person' | 'party' | null
   >(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -271,14 +288,57 @@ export function TransactionForm({
           ? theme.colors.primary
           : theme.colors.expense;
 
-  /** Switching to a kind that needs your own money account drops a person picked earlier. */
+  const chooseAccount = (id: string) => {
+    setAccountTouched(true);
+    setAccountId(id);
+    if (id === toAccountId) {
+      setToAccountId(accounts.find((item) => item.id !== id)?.id ?? '');
+    }
+  };
+
+  /**
+   * Switching kind moves an untouched account to the one last used for that kind,
+   * and a kind that needs your own cash or bank account drops a party picked earlier.
+   */
   const changeKind = (next: EditableKind) => {
     setKind(next);
     setError(null);
     setActiveField('main');
-    if ((next === 'transfer' || next === 'debt') && people.some((item) => item.id === accountId)) {
-      setAccountId(accounts[0]?.id ?? '');
+    const wasOnParty = people.some((item) => item.id === accountId);
+    if (!accountTouched || ((next === 'transfer' || next === 'debt') && wasOnParty)) {
+      const nextAccount = defaultAccountFor(next);
+      setAccountId(nextAccount);
+      if (nextAccount === toAccountId) {
+        setToAccountId(accounts.find((item) => item.id !== nextAccount)?.id ?? '');
+      }
     }
+  };
+
+  const parsedAmount = parseAmount(amountDraft, digits);
+  const amountMinor = parsedAmount.ok ? parsedAmount.minor : 0;
+  const parsedTo = otherCurrency
+    ? parseAmount(toAmountDraft, getCurrency(otherCurrency).fractionDigits)
+    : null;
+  const toAmountMinor = exchange && parsedTo?.ok ? parsedTo.minor : amountMinor;
+  const fromSide: MoneySide =
+    kind === 'transfer'
+      ? { kind: 'transfer', side: 'from' }
+      : kind === 'debt'
+        ? { kind: 'debt', action: debtAction }
+        : { kind };
+  const fromLabel =
+    kind === 'transfer'
+      ? 'From'
+      : kind === 'income' || (kind === 'debt' && !debtGoesToPerson(debtAction))
+        ? 'Received into'
+        : 'Paid from';
+  const onParty = account?.accountClass === 'person';
+  /** Active cash and bank accounts, plus an archived one an older entry already uses. */
+  const choosable = (id: string) => {
+    const archived = snapshot?.allAccounts.find(
+      (item) => item.id === id && item.accountClass === 'money' && item.archivedAt,
+    );
+    return archived ? [...accounts, archived] : accounts;
   };
 
   const debtPreview = (() => {
@@ -380,6 +440,25 @@ export function TransactionForm({
     };
   };
 
+  /** Names the account in the confirmation, so a wrong choice is noticed straight away. */
+  const postedMessage = (): string => {
+    const amount = formatMoney(amountMinor, currency);
+    const name = account?.name ?? 'the account';
+    if (fixedKind) return `${KIND_LABELS[effectiveKind]} posted.`;
+    if (kind === 'debt') {
+      return `${DEBT_TOASTS[debtAction]} ${amount} ${debtGoesToPerson(debtAction) ? 'from' : 'into'} ${name}.`;
+    }
+    if (kind === 'transfer') return `Transfer posted: ${name} → ${toAccount?.name ?? ''}.`;
+    if (onParty) {
+      return kind === 'income'
+        ? `Income of ${amount} posted, receivable from ${name}.`
+        : `Expense of ${amount} posted, paid by ${name}.`;
+    }
+    return kind === 'income'
+      ? `Income of ${amount} posted to ${name}.`
+      : `Expense of ${amount} posted from ${name}.`;
+  };
+
   const save = async () => {
     if (saving) return;
     setError(null);
@@ -390,6 +469,7 @@ export function TransactionForm({
     }
     setSaving(true);
     try {
+      let savedId = '';
       await mutate(async (s) => {
         let saved: TransactionWithLines;
         if (mode === 'edit' && transaction) {
@@ -402,16 +482,20 @@ export function TransactionForm({
         for (const receipt of receipts) {
           if (receipt.transactionId !== saved.id) await s.receipts.attach(receipt.id, saved.id);
         }
+        savedId = saved.id;
       });
       haptics.success();
-      showToast(
-        mode === 'edit'
-          ? 'Changes saved.'
-          : kind === 'debt' && !fixedKind
-            ? DEBT_TOASTS[debtAction]
-            : `${KIND_LABELS[effectiveKind]} posted.`,
-        { tone: 'success' },
-      );
+      showToast(mode === 'edit' ? 'Changes saved.' : postedMessage(), {
+        tone: 'success',
+        action:
+          mode === 'create' && savedId
+            ? {
+                label: 'Edit',
+                onPress: () =>
+                  router.push({ pathname: '/transaction/edit/[id]', params: { id: savedId } }),
+              }
+            : undefined,
+      });
       if (router.canGoBack()) router.back();
       else router.replace('/');
     } catch (caught) {
@@ -530,7 +614,7 @@ export function TransactionForm({
                   onPress={() => setDebtAction(action)}
                   haptic
                   accessibilityRole="radio"
-                  accessibilityState={{ selected }}
+                  aria-checked={selected}
                   testID={`debt-action-${action}`}
                   style={[
                     styles.actionTile,
@@ -595,8 +679,8 @@ export function TransactionForm({
           ) : null}
         </View>
 
-        <Card padded={false}>
-          {kind === 'debt' && !fixedKind ? (
+        {kind === 'debt' && !fixedKind ? (
+          <Card padded={false}>
             <SelectRow
               label="Party"
               value={person?.name ?? ''}
@@ -608,46 +692,99 @@ export function TransactionForm({
               }
               icon="person"
               onPress={() => setPicker('person')}
+              last
             />
-          ) : null}
-          <SelectRow
-            label={
-              kind === 'transfer'
-                ? 'From'
-                : kind === 'debt' && !fixedKind
-                  ? debtGoesToPerson(debtAction)
-                    ? 'Paid from'
-                    : 'Received into'
-                  : account?.accountClass === 'person'
-                    ? kind === 'income'
-                      ? 'Receivable from'
-                      : 'Paid by'
-                    : 'Account'
-            }
-            value={account?.name ?? ''}
-            leading={
-              account ? (
-                account.accountClass === 'person' ? (
-                  <PersonAvatar name={account.name} color={account.color} size={28} />
-                ) : (
-                  <IconBadge icon={account.icon} color={account.color} size={28} solid />
-                )
+          </Card>
+        ) : null}
+
+        {!fixedKind && onParty && account ? (
+          <View style={styles.block}>
+            <AppText variant="labelStrong">
+              {kind === 'income' ? 'On account from a party' : 'Paid by a party'}
+            </AppText>
+            <Card padded={false}>
+              <SelectRow
+                label="Party"
+                value={account.name}
+                leading={<PersonAvatar name={account.name} color={account.color} size={28} />}
+                icon="person"
+                onPress={() => setPicker('party')}
+                last
+              />
+            </Card>
+            <AppText variant="caption" tone="muted">
+              {kind === 'income'
+                ? 'Posted to the party as a receivable until it is collected.'
+                : 'The party paid on your behalf; posted as a payable to them.'}
+            </AppText>
+            <View style={styles.inlineChip}>
+              <Chip
+                label="Use cash or bank instead"
+                icon="wallet"
+                size="sm"
+                onPress={() => chooseAccount(defaultAccountFor(kind))}
+              />
+            </View>
+          </View>
+        ) : null}
+
+        {!fixedKind && !onParty ? (
+          <AccountChooser
+            label={fromLabel}
+            accounts={choosable(accountId)}
+            value={accountId}
+            currency={currency}
+            balances={balances}
+            changeMinor={moneyAccountChange(fromSide, amountMinor)}
+            onChange={(selected) => chooseAccount(selected.id)}
+            testID="from-account"
+            footer={
+              kind === 'expense' || kind === 'income' ? (
+                <View style={styles.inlineChip}>
+                  <Chip
+                    label={
+                      kind === 'income' ? 'On account from a party' : 'Paid by a party instead'
+                    }
+                    icon="person"
+                    size="sm"
+                    onPress={() => setPicker('party')}
+                  />
+                </View>
               ) : undefined
             }
-            icon="wallet"
-            onPress={() => setPicker('account')}
           />
-          {kind === 'transfer' && !fixedKind ? (
+        ) : null}
+
+        {kind === 'transfer' && !fixedKind ? (
+          <AccountChooser
+            label="To"
+            accounts={choosable(toAccountId)}
+            value={toAccountId}
+            currency={exchange && otherCurrency ? otherCurrency : currency}
+            balances={balances}
+            changeMinor={moneyAccountChange({ kind: 'transfer', side: 'to' }, toAmountMinor)}
+            onChange={(selected) => setToAccountId(selected.id)}
+            disabledId={accountId}
+            testID="to-account"
+          />
+        ) : null}
+
+        <Card padded={false}>
+          {fixedKind ? (
             <SelectRow
-              label="To"
-              value={toAccount?.name ?? ''}
+              label={account?.accountClass === 'person' ? 'Party' : 'Account'}
+              value={account?.name ?? ''}
               leading={
-                toAccount ? (
-                  <IconBadge icon={toAccount.icon} color={toAccount.color} size={28} solid />
+                account ? (
+                  account.accountClass === 'person' ? (
+                    <PersonAvatar name={account.name} color={account.color} size={28} />
+                  ) : (
+                    <IconBadge icon={account.icon} color={account.color} size={28} solid />
+                  )
                 ) : undefined
               }
-              icon="arrow-forward"
-              onPress={() => setPicker('toAccount')}
+              icon="wallet"
+              onPress={() => setPicker('account')}
             />
           ) : null}
           {kind !== 'transfer' && kind !== 'debt' && !fixedKind ? (
@@ -802,41 +939,21 @@ export function TransactionForm({
         visible={picker === 'account'}
         onClose={() => setPicker(null)}
         accounts={accounts}
-        people={(kind === 'expense' || kind === 'income') && !fixedKind ? people : []}
-        peopleTitle={kind === 'income' ? 'On account (receivable)' : 'Paid by a party (payable)'}
-        peopleHint={
-          kind === 'income'
-            ? 'Posted to the party as a receivable until it is collected.'
-            : 'The party paid on your behalf; posted as a payable to them.'
-        }
         balances={balances}
         currencies={currencies}
         value={accountId}
-        title={
-          kind === 'transfer'
-            ? 'From account'
-            : kind === 'debt'
-              ? debtGoesToPerson(debtAction)
-                ? 'Paid from'
-                : 'Received into'
-              : 'Account'
-        }
-        onSelect={(selected: Account) => {
-          setAccountId(selected.id);
-          if (selected.id === toAccountId)
-            setToAccountId(accounts.find((item) => item.id !== selected.id)?.id ?? '');
-        }}
+        title="Account"
+        onSelect={(selected: Account) => setAccountId(selected.id)}
       />
-      <AccountPickerSheet
-        visible={picker === 'toAccount'}
+      <PersonPickerSheet
+        visible={picker === 'party'}
         onClose={() => setPicker(null)}
-        accounts={accounts}
+        people={people}
         balances={balances}
         currencies={currencies}
-        value={toAccountId}
-        excludeId={accountId}
-        title="To account"
-        onSelect={(selected: Account) => setToAccountId(selected.id)}
+        value={onParty ? accountId : ''}
+        onSelect={(selected: Account) => chooseAccount(selected.id)}
+        onCreate={(name) => mutate((s) => s.setup.createPerson({ name }))}
       />
       <PersonPickerSheet
         visible={picker === 'person'}
@@ -927,6 +1044,9 @@ const styles = StyleSheet.create({
   },
   block: {
     gap: 8,
+  },
+  inlineChip: {
+    flexDirection: 'row',
   },
   actionGrid: {
     flexDirection: 'row',

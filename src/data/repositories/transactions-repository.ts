@@ -7,6 +7,9 @@ const TX_COLUMNS =
   'id, kind, debt_action, posted_date, category_id, note, created_at, updated_at, deleted_at';
 const LINE_COLUMNS = 'id, transaction_id, account_id, currency, amount_minor, role';
 
+/** The kinds of entry a person makes by hand; each remembers its own last account. */
+export type EntryKind = 'expense' | 'income' | 'transfer' | 'debt';
+
 export type TransactionFilter = {
   dateFrom?: string;
   dateTo?: string;
@@ -226,6 +229,32 @@ export function createTransactionsRepository(db: SqlExecutor) {
         [currency],
       );
       return (row?.n ?? 0) > 0;
+    },
+
+    /**
+     * The cash or bank account used by the most recently entered expense, income,
+     * transfer (its source) and loan (its money side). Opening balances,
+     * reconciliations, deleted entries, parties and archived accounts are ignored,
+     * so the default account in the form never jumps to one of those.
+     */
+    async lastAccountByEntryKind(): Promise<Partial<Record<EntryKind, string>>> {
+      const rows = await db.all<{ entry_kind: EntryKind; account_id: string }>(
+        `SELECT CASE WHEN t.debt_action IS NOT NULL THEN 'debt' ELSE t.kind END AS entry_kind,
+                l.account_id AS account_id
+           FROM transactions t
+           JOIN ledger_lines l ON l.transaction_id = t.id
+           JOIN accounts a ON a.id = l.account_id
+          WHERE t.deleted_at IS NULL
+            AND t.kind IN ('expense', 'income', 'transfer')
+            AND a.account_class = 'money'
+            AND a.archived_at IS NULL
+            AND (t.kind <> 'transfer' OR t.debt_action IS NOT NULL OR l.role = 'source')
+          ORDER BY t.created_at DESC, t.rowid DESC
+          LIMIT 200`,
+      );
+      const result: Partial<Record<EntryKind, string>> = {};
+      for (const row of rows) result[row.entry_kind] ??= row.account_id;
+      return result;
     },
 
     /** Permanently removes soft-deleted transactions older than the cutoff. */
