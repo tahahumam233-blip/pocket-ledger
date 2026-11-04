@@ -33,7 +33,7 @@ import {
 } from '@/domain';
 import { haptics } from '@/platform/haptics';
 import { shareText, shareTextFile } from '@/platform/share-file';
-import { useLedgerStore } from '@/state/ledger-store';
+import { useAmountsHidden, useLedgerStore } from '@/state/ledger-store';
 import { showToast } from '@/state/toast-store';
 import { useQuery } from '@/state/use-query';
 
@@ -72,6 +72,7 @@ export default function PersonScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const snapshot = useLedgerStore((state) => state.snapshot);
+  const masked = useAmountsHidden();
   const currencies = snapshot?.settings.currencies ?? ['USD'];
   const [currencyChoice, setCurrency] = useState<string | null>(null);
   const [period, setPeriod] = useState<Period>('all');
@@ -321,7 +322,7 @@ export default function PersonScreen() {
                 </AppText>
               </View>
               <AppText variant="amount" tone={drCrTone(data.openingMinor)}>
-                {formatDrCr(data.openingMinor, currency)}
+                {formatDrCr(data.openingMinor, currency, { masked })}
               </AppText>
             </View>
             {data.entries.length === 0 ? (
@@ -363,7 +364,7 @@ export default function PersonScreen() {
                     variant="amount"
                   />
                   <AppText variant="caption" tone="muted">
-                    Bal {formatDrCr(item.balanceMinor, currency)}
+                    Bal {formatDrCr(item.balanceMinor, currency, { masked })}
                   </AppText>
                 </View>
               </PressableScale>
@@ -396,7 +397,7 @@ export default function PersonScreen() {
                   tone={drCrTone(data.closingMinor)}
                   testID="statement-closing"
                 >
-                  {formatDrCr(data.closingMinor, currency)}
+                  {formatDrCr(data.closingMinor, currency, { masked })}
                 </AppText>
               </View>
             </View>

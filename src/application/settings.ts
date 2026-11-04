@@ -16,6 +16,8 @@ export type AppSettings = {
   reminderSignature: string;
   /** UTC timestamp of the last backup file, or an empty string. */
   lastBackupAt: string;
+  /** Amounts show as dots until the eye button is tapped again; kept across launches. */
+  hideAmounts: boolean;
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -29,6 +31,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   appLockEnabled: false,
   reminderSignature: '',
   lastBackupAt: '',
+  hideAmounts: false,
 };
 
 export const SETTINGS_KEYS = {
@@ -42,6 +45,7 @@ export const SETTINGS_KEYS = {
   appLockEnabled: 'app_lock_enabled',
   reminderSignature: 'reminder_signature',
   lastBackupAt: 'last_backup_at',
+  hideAmounts: 'hide_amounts',
 } as const satisfies Record<keyof AppSettings, string>;
 
 function parseBoolean(value: string | undefined, fallback: boolean): boolean {
@@ -85,6 +89,7 @@ export function parseSettings(record: Record<string, string>): AppSettings {
     appLockEnabled: parseBoolean(record[SETTINGS_KEYS.appLockEnabled], false),
     reminderSignature: record[SETTINGS_KEYS.reminderSignature] ?? '',
     lastBackupAt: record[SETTINGS_KEYS.lastBackupAt] ?? '',
+    hideAmounts: parseBoolean(record[SETTINGS_KEYS.hideAmounts], false),
   };
 }
 
@@ -114,5 +119,8 @@ export function serializeSettings(settings: Partial<AppSettings>): Record<string
     out[SETTINGS_KEYS.reminderSignature] = settings.reminderSignature;
   }
   if (settings.lastBackupAt !== undefined) out[SETTINGS_KEYS.lastBackupAt] = settings.lastBackupAt;
+  if (settings.hideAmounts !== undefined) {
+    out[SETTINGS_KEYS.hideAmounts] = String(settings.hideAmounts);
+  }
   return out;
 }

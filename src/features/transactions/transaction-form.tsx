@@ -49,7 +49,7 @@ import {
 } from '@/domain';
 import { haptics } from '@/platform/haptics';
 import { captureFromCamera, pickFromLibrary } from '@/platform/image-capture';
-import { useLedgerStore, useServices } from '@/state/ledger-store';
+import { useAmountsHidden, useLedgerStore, useServices } from '@/state/ledger-store';
 import { showToast } from '@/state/toast-store';
 import { KIND_LABELS } from '@/utils/transaction-presenter';
 
@@ -120,6 +120,7 @@ export function TransactionForm({
   const services = useServices();
   const snapshot = useLedgerStore((state) => state.snapshot);
   const mutate = useLedgerStore((state) => state.mutate);
+  const masked = useAmountsHidden();
 
   const accounts = useMemo(() => snapshot?.accounts ?? [], [snapshot?.accounts]);
   const people = useMemo(() => snapshot?.people ?? [], [snapshot?.people]);
@@ -442,7 +443,7 @@ export function TransactionForm({
 
   /** Names the account in the confirmation, so a wrong choice is noticed straight away. */
   const postedMessage = (): string => {
-    const amount = formatMoney(amountMinor, currency);
+    const amount = formatMoney(amountMinor, currency, { masked });
     const name = account?.name ?? 'the account';
     if (fixedKind) return `${KIND_LABELS[effectiveKind]} posted.`;
     if (kind === 'debt') {

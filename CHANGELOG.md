@@ -2,6 +2,12 @@
 
 ## 1.0.0 (unreleased)
 
+### Added: hide amounts
+
+- An eye button on the Home card, Activity and Reports hides every amount in the app behind dots (the currency stays), and shows them again with another tap.
+- Hidden stays hidden after closing and reopening the app.
+- While hidden, colours that hint at a negative balance and the below-zero warning are neutral; the amount you are typing stays visible.
+
 ### Changed: choosing the account
 
 - The add form shows every cash and bank account as a tile in its own colour with its balance, under "Paid from", "Received into", or "From" and "To", instead of a single Account row.

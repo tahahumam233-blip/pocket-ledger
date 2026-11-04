@@ -4,7 +4,7 @@
 
 - The ledger is a SQLite database inside the app's private storage on the device.
 - Receipt photos are copied into the app's private `Documents/receipts` folder. The original photo in the gallery is untouched.
-- Settings (currencies, reminder time, theme, app-lock flag) live in the same database.
+- Settings (currencies, reminder time, theme, app-lock flag, hidden amounts) live in the same database.
 
 Nothing is sent anywhere. There is no backend, sync, crash reporting, analytics or advertising SDK. The only network use is Expo's development tooling while developing.
 
@@ -27,6 +27,7 @@ Nothing is sent anywhere. There is no backend, sync, crash reporting, analytics 
 
 ## Honest limitations
 
+- The eye button only changes what the screen shows. Amounts are replaced by dots, signs and warning colours are neutral, and the setting survives a restart. Anyone who taps the eye can show them again, and shared statements and CSV exports always contain the real figures.
 - The database is not separately encrypted; it relies on the phone's own storage encryption and lock screen. The app lock hides the UI but is not a cryptographic boundary.
 - Deleting the app deletes the ledger and the receipt photos. Use Settings, Back up now, and keep the file somewhere safe; the backup file itself is not encrypted, so store it like any personal document.
 - CSV export writes a temporary file to the app cache and hands it to the system share sheet; wherever you send it is outside the app's control.

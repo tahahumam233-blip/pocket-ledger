@@ -467,6 +467,17 @@ describe.each(DRIVERS)('with %s', (_name, makeDriver) => {
       );
     });
 
+    it('remembers hidden amounts across launches without touching the ledger', async () => {
+      const { pocket } = await onboard();
+      expect((await services.queries.home()).settings.hideAmounts).toBe(false);
+      await services.setup.updateSettings({ hideAmounts: true });
+      // A fresh read, as on the next launch, still has amounts hidden.
+      expect((await services.queries.home()).settings.hideAmounts).toBe(true);
+      expect(await balance(pocket.id, 'USD')).toBe(10000);
+      await services.setup.updateSettings({ hideAmounts: false });
+      expect((await services.queries.home()).settings.hideAmounts).toBe(false);
+    });
+
     it('erases everything so onboarding can start again', async () => {
       await onboard();
       await services.setup.eraseAllData();

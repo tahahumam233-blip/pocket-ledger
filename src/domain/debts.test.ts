@@ -188,4 +188,9 @@ describe('debit and credit balances', () => {
     expect(formatDrCr(-2500, 'USD')).toBe('$25.00 Cr');
     expect(formatDrCr(0, 'USD')).toBe('$0.00');
   });
+
+  it('keeps the side but hides the figure when amounts are hidden', () => {
+    expect(formatDrCr(6000, 'USD', { masked: true })).toBe('$\u2022\u2022\u2022\u2022 Dr');
+    expect(formatDrCr(-2500, 'USD', { masked: true })).toBe('$\u2022\u2022\u2022\u2022 Cr');
+  });
 });

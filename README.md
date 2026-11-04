@@ -8,6 +8,7 @@ A private, offline spending tracker for iPhone, built with Expo and React Native
 - **Receivables and payables.** Post loans given and received and their repayments, and share a statement of account (debit, credit, Dr/Cr balance) for each party.
 - **A nightly reminder** at the time you choose, as a daily Calendar alert (or a notification in the optional native build).
 - **Reports** by category and by month, transfers and exchanges between currencies, balance adjustments, CSV export, backup and restore with photos, dark mode, and an optional Face ID lock in the native build.
+- **Hide amounts with one tap.** The eye button on Home, Activity and Reports replaces every amount with dots when you show the app to someone.
 - **No account, no cloud, no ads.** Everything stays on the phone.
 
 ![App icon](assets/images/splash-icon.png)

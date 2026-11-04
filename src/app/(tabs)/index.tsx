@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AccountCard } from '@/components/account-card';
+import { AmountsToggle } from '@/components/amounts-toggle';
 import { AppText } from '@/components/app-text';
 import { Card } from '@/components/card';
 import { EmptyState } from '@/components/empty-state';
@@ -19,7 +20,7 @@ import { useBackup } from '@/features/backup/use-backup';
 import { DebtSummary } from '@/features/people/debt-summary';
 import { PersonRow } from '@/features/people/person-row';
 import { useQuickCapture } from '@/features/receipts/use-quick-capture';
-import { useLedgerStore } from '@/state/ledger-store';
+import { useAmountsHidden, useLedgerStore } from '@/state/ledger-store';
 import { buildLookup } from '@/utils/transaction-presenter';
 
 function greetingFor(hour: number, name: string) {
@@ -35,6 +36,7 @@ export default function HomeScreen() {
   const refresh = useLedgerStore((state) => state.refresh);
   const capture = useQuickCapture();
   const backup = useBackup();
+  const masked = useAmountsHidden();
 
   if (!snapshot) return <Screen />;
   const {
@@ -61,6 +63,8 @@ export default function HomeScreen() {
     .slice(0, 3);
 
   const spendLine = (totalsByCurrency: Partial<Record<string, number>>) => {
+    // Hidden amounts look the same whether or not anything was spent.
+    if (masked) return formatMoney(0, primaryCurrency, { masked });
     const parts = settings.currencies
       .filter((code) => (totalsByCurrency[code] ?? 0) > 0)
       .map((code) => formatMoney(totalsByCurrency[code] ?? 0, code));
@@ -129,9 +133,12 @@ export default function HomeScreen() {
         style={[styles.hero, { borderRadius: theme.radii.xxl }]}
       >
         <View style={styles.heroGlow} />
-        <AppText variant="micro" tone="heroMuted">
-          Cash & bank
-        </AppText>
+        <View style={styles.heroLabelRow}>
+          <AppText variant="micro" tone="heroMuted">
+            Cash & bank
+          </AppText>
+          <AmountsToggle variant="hero" />
+        </View>
         {primary ? (
           <MoneyText
             amountMinor={totals[primary] ?? 0}
@@ -362,6 +369,13 @@ const styles = StyleSheet.create({
     padding: 22,
     gap: 4,
     overflow: 'hidden',
+  },
+  heroLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: -8,
+    marginRight: -8,
   },
   heroGlow: {
     position: 'absolute',

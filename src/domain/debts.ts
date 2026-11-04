@@ -208,8 +208,12 @@ export function buildStatement(
 }
 
 /** "$60.00 Dr", "$20.00 Cr" or "$0.00": a party balance in debit/credit form. */
-export function formatDrCr(balanceMinor: MinorUnits, currency: CurrencyCode): string {
-  const amount = formatMoney(Math.abs(balanceMinor), currency);
+export function formatDrCr(
+  balanceMinor: MinorUnits,
+  currency: CurrencyCode,
+  options: { masked?: boolean } = {},
+): string {
+  const amount = formatMoney(Math.abs(balanceMinor), currency, { masked: options.masked });
   if (balanceMinor > 0) return `${amount} Dr`;
   if (balanceMinor < 0) return `${amount} Cr`;
   return amount;

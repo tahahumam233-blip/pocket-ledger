@@ -6,7 +6,7 @@ SQLite database `pocket-ledger.db` in the app's default database directory. Sche
 
 ### settings
 
-Key/value strings. Keys: `onboarding_completed`, `currencies` (JSON array, primary first), `user_name`, `reminder_enabled`, `reminder_hour`, `reminder_minute`, `theme`, `app_lock_enabled`, `reminder_signature`.
+Key/value strings. Keys: `onboarding_completed`, `currencies` (JSON array, primary first), `user_name`, `reminder_enabled`, `reminder_hour`, `reminder_minute`, `theme`, `app_lock_enabled`, `reminder_signature`, `last_backup_at`, `hide_amounts` (`true` while the eye button hides amounts).
 
 ### accounts
 

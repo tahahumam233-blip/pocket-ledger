@@ -4,6 +4,7 @@ import { AppText } from '@/components/app-text';
 import { Card } from '@/components/card';
 import { MoneyText } from '@/components/money-text';
 import type { DebtTotals } from '@/domain';
+import { useAmountsHidden } from '@/state/ledger-store';
 
 type DebtSummaryProps = {
   totals: DebtTotals;
@@ -13,6 +14,7 @@ type DebtSummaryProps = {
 
 /** Two tiles: total receivables and total payables, each per currency. */
 export function DebtSummary({ totals, currencies, onPress }: DebtSummaryProps) {
+  const masked = useAmountsHidden();
   const column = (
     title: string,
     values: Partial<Record<string, number>>,
@@ -28,7 +30,7 @@ export function DebtSummary({ totals, currencies, onPress }: DebtSummaryProps) {
           amountMinor={values[currency] ?? 0}
           currency={currency}
           variant={index === 0 ? 'amountMedium' : 'amount'}
-          tone={values[currency] ? tone : 'subtle'}
+          tone={values[currency] || masked ? tone : 'subtle'}
           numberOfLines={1}
           adjustsFontSizeToFit
           minimumFontScale={0.6}

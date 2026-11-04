@@ -151,7 +151,15 @@ export type FormatMoneyOptions = {
   useCode?: boolean;
   /** Hide the symbol and code entirely. */
   bare?: boolean;
+  /**
+   * Replace the figure with dots, keeping the currency, for when the screen is shown
+   * to someone else. The sign is dropped too, so nothing about the amount shows.
+   */
+  masked?: boolean;
 };
+
+/** What a hidden amount shows instead of its digits. */
+export const MASKED_AMOUNT = '\u2022\u2022\u2022\u2022';
 
 const NARROW_NO_BREAK_SPACE = ' ';
 
@@ -162,12 +170,12 @@ export function formatMoney(
 ): string {
   const currency =
     typeof currencyOrCode === 'string' ? getCurrency(currencyOrCode) : currencyOrCode;
-  const { sign = 'auto', useCode = false, bare = false } = options;
-  const number = formatNumber(minor, currency.fractionDigits);
+  const { sign = 'auto', useCode = false, bare = false, masked = false } = options;
+  const number = masked ? MASKED_AMOUNT : formatNumber(minor, currency.fractionDigits);
 
   let signText = '';
-  if (minor < 0 && sign !== 'never') signText = '-';
-  if (minor > 0 && sign === 'always') signText = '+';
+  if (!masked && minor < 0 && sign !== 'never') signText = '-';
+  if (!masked && minor > 0 && sign === 'always') signText = '+';
 
   if (bare) return `${signText}${number}`;
 

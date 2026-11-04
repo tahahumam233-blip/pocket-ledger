@@ -2,6 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { ScrollView, SectionList, StyleSheet, View } from 'react-native';
 
+import { AmountsToggle } from '@/components/amounts-toggle';
 import { AppText } from '@/components/app-text';
 import { Card } from '@/components/card';
 import { Chip } from '@/components/chip';
@@ -23,7 +24,7 @@ import {
   type TransactionWithLines,
   type YearMonth,
 } from '@/domain';
-import { useLedgerStore } from '@/state/ledger-store';
+import { useAmountsHidden, useLedgerStore } from '@/state/ledger-store';
 import { useQuery } from '@/state/use-query';
 import { buildLookup, groupByDay } from '@/utils/transaction-presenter';
 
@@ -71,6 +72,7 @@ export default function ActivityScreen() {
     month?: string;
   }>();
   const snapshot = useLedgerStore((state) => state.snapshot);
+  const masked = useAmountsHidden();
   const [month, setMonth] = useState<YearMonth>(() => parseMonthParam(params.month));
   const [kind, setKind] = useState<KindFilter>('all');
   const [currency, setCurrency] = useState<string | null>(null);
@@ -120,13 +122,20 @@ export default function ActivityScreen() {
   const dayTotals = (items: TransactionWithLines[]) => {
     const totals = expenseTotalsByCurrency(toReportLines(items));
     return [...totals.entries()]
-      .map(([code, amount]) => `-${formatMoney(amount, code)}`)
+      .map(([code, amount]) =>
+        masked ? formatMoney(amount, code, { masked }) : `-${formatMoney(amount, code)}`,
+      )
       .join('  ·  ');
   };
 
   const header = (
     <View style={styles.header}>
-      <ScreenHeader title="Activity" large subtitle="Every entry, grouped by day." />
+      <ScreenHeader
+        title="Activity"
+        large
+        subtitle="Every entry, grouped by day."
+        right={<AmountsToggle />}
+      />
       <View style={styles.filters}>
         <TextField
           value={search}
@@ -188,7 +197,7 @@ export default function ActivityScreen() {
                   amountMinor={spent.get(code) ?? 0}
                   currency={code}
                   variant="amount"
-                  tone={spent.get(code) ? 'expense' : 'subtle'}
+                  tone={spent.get(code) || masked ? 'expense' : 'subtle'}
                 />
               ))}
             </View>
@@ -202,7 +211,7 @@ export default function ActivityScreen() {
                   amountMinor={received.get(code) ?? 0}
                   currency={code}
                   variant="amount"
-                  tone={received.get(code) ? 'income' : 'subtle'}
+                  tone={received.get(code) || masked ? 'income' : 'subtle'}
                 />
               ))}
             </View>

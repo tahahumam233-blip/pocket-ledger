@@ -57,6 +57,19 @@ describe('formatMoney', () => {
     expect(formatMoney(1500, 'KWD')).toBe('1.500 KWD');
   });
 
+  it('masks the figure and sign but keeps the currency when amounts are hidden', () => {
+    expect(formatMoney(125050, 'USD', { masked: true })).toBe('$\u2022\u2022\u2022\u2022');
+    expect(formatMoney(-125050, 'USD', { masked: true, sign: 'always' })).toBe(
+      '$\u2022\u2022\u2022\u2022',
+    );
+    expect(formatMoney(1450000, 'IQD', { masked: true })).toBe('\u2022\u2022\u2022\u2022\u202fIQD');
+    expect(formatMoney(0, 'EUR', { masked: true, bare: true })).toBe('\u2022\u2022\u2022\u2022');
+    // Every amount looks the same, so nothing about its size leaks.
+    expect(formatMoney(5, 'USD', { masked: true })).toBe(
+      formatMoney(999999999, 'USD', { masked: true }),
+    );
+  });
+
   it('supports explicit signs, codes and bare numbers', () => {
     expect(formatMoney(1000, 'USD', { sign: 'always' })).toBe('+$10.00');
     expect(formatMoney(-1000, 'USD', { sign: 'never' })).toBe('$10.00');

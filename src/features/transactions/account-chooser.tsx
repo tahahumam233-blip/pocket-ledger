@@ -8,6 +8,7 @@ import { MoneyText } from '@/components/money-text';
 import { PressableScale } from '@/components/pressable-scale';
 import { useTheme, withAlpha } from '@/design';
 import { type Account, formatMoney } from '@/domain';
+import { useAmountsHidden } from '@/state/ledger-store';
 
 const PER_ROW = 3;
 
@@ -44,6 +45,7 @@ export function AccountChooser({
   testID,
 }: AccountChooserProps) {
   const theme = useTheme();
+  const masked = useAmountsHidden();
   const selected = accounts.find((account) => account.id === value);
   const rows: Account[][] = [];
   for (let index = 0; index < accounts.length; index += PER_ROW) {
@@ -51,7 +53,8 @@ export function AccountChooser({
   }
   const before = selected ? (balances.get(selected.id)?.[currency] ?? 0) : 0;
   const after = before + changeMinor;
-  const overdrawn = Boolean(selected) && changeMinor < 0 && after < 0;
+  // While amounts are hidden the warning would hint at the balance, so it stays quiet.
+  const overdrawn = !masked && Boolean(selected) && changeMinor < 0 && after < 0;
 
   return (
     <View style={styles.wrap} testID={testID}>
@@ -72,7 +75,7 @@ export function AccountChooser({
                   accessibilityRole="radio"
                   aria-checked={isSelected}
                   aria-disabled={disabled}
-                  accessibilityLabel={`${label} ${account.name}, ${formatMoney(balance, currency)}`}
+                  accessibilityLabel={`${label} ${account.name}, ${formatMoney(balance, currency, { masked })}`}
                   testID={`${testID ?? 'account'}-${account.name}`}
                   style={[
                     styles.tile,
@@ -105,7 +108,7 @@ export function AccountChooser({
                     amountMinor={balance}
                     currency={currency}
                     variant="caption"
-                    tone={balance < 0 ? 'danger' : 'muted'}
+                    tone={balance < 0 && !masked ? 'danger' : 'muted'}
                     numberOfLines={1}
                     adjustsFontSizeToFit
                     minimumFontScale={0.7}

@@ -16,6 +16,11 @@ type LedgerState = {
   refresh: () => Promise<void>;
   /** Runs a write, then refreshes shared state. Errors propagate to the caller. */
   mutate: <T>(work: (services: AppServices) => Promise<T>) => Promise<T>;
+  /**
+   * Hides or shows every amount at once. The screen changes immediately and the
+   * choice is saved in the background, so it is still in effect on the next launch.
+   */
+  setAmountsHidden: (hidden: boolean) => Promise<void>;
 };
 
 export const useLedgerStore = create<LedgerState>((set, get) => ({
@@ -53,7 +58,31 @@ export const useLedgerStore = create<LedgerState>((set, get) => ({
     await get().refresh();
     return result;
   },
+  setAmountsHidden: async (hidden) => {
+    const apply = (value: boolean) =>
+      set((state) => ({
+        settings: { ...state.settings, hideAmounts: value },
+        snapshot: state.snapshot
+          ? { ...state.snapshot, settings: { ...state.snapshot.settings, hideAmounts: value } }
+          : null,
+      }));
+    const previous = get().settings.hideAmounts;
+    apply(hidden);
+    const { services } = get();
+    if (!services) return;
+    try {
+      await services.setup.updateSettings({ hideAmounts: hidden });
+    } catch (error) {
+      apply(previous);
+      throw error;
+    }
+  },
 }));
+
+/** True while amounts should show as dots. */
+export function useAmountsHidden(): boolean {
+  return useLedgerStore((state) => state.settings.hideAmounts);
+}
 
 export function useServices(): AppServices {
   const services = useLedgerStore((state) => state.services);

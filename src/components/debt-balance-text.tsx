@@ -1,4 +1,5 @@
 import { debtStanding, formatMoney } from '@/domain';
+import { useAmountsHidden } from '@/state/ledger-store';
 
 import { AppText, type AppTextProps } from './app-text';
 
@@ -17,8 +18,9 @@ export function DebtBalanceText({
   variant = 'amountSmall',
   ...rest
 }: DebtBalanceTextProps) {
+  const masked = useAmountsHidden();
   const standing = debtStanding(balanceMinor);
-  const amount = formatMoney(Math.abs(balanceMinor), currency);
+  const amount = formatMoney(Math.abs(balanceMinor), currency, { masked });
   const text =
     standing === 'owes_you'
       ? name

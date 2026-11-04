@@ -12,6 +12,8 @@ Run on a real phone after changes to screens, storage or notifications.
 ## Recording
 
 - [ ] Add an expense with the keypad in each currency; Home and the account card update.
+- [ ] Tap the eye on the Home card: every amount on Home, Activity, Reports, account and party screens, statements and the add form shows as dots with the currency kept; negative balances are not red and the below-zero warning stays quiet. The amount you type in the add form stays visible.
+- [ ] Close and reopen the app: amounts are still hidden. Tap the eye on Activity or Reports: amounts show everywhere again. VoiceOver reads the button as "Hide amounts" or "Show amounts".
 - [ ] The add form shows every cash and bank account as a tile with its balance under "Paid from" (expense), "Received into" (income), "From" and "To" (transfer); the chosen tile is filled in its colour with a tick, and VoiceOver reads it as selected.
 - [ ] Typing an amount shows "Account before → after"; an expense larger than the balance shows the amber "below zero" warning but still saves.
 - [ ] The default account is the one the last expense (or income, transfer, loan) used; opening balances and reconciliations never change it; switching type before touching the tiles follows that type's last account.

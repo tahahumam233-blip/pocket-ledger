@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { AmountsToggle } from '@/components/amounts-toggle';
 import { AppText } from '@/components/app-text';
 import { Card } from '@/components/card';
 import { BarChart } from '@/components/charts/bar-chart';
@@ -23,7 +24,7 @@ import {
   SHORT_MONTH_NAMES,
   type YearMonth,
 } from '@/domain';
-import { useLedgerStore } from '@/state/ledger-store';
+import { useAmountsHidden, useLedgerStore } from '@/state/ledger-store';
 import { useQuery } from '@/state/use-query';
 
 function changeLabel(
@@ -43,6 +44,7 @@ export default function ReportsScreen() {
   const theme = useTheme();
   const router = useRouter();
   const snapshot = useLedgerStore((state) => state.snapshot);
+  const masked = useAmountsHidden();
   const currencies = snapshot?.settings.currencies ?? ['USD'];
   const [month, setMonth] = useState<YearMonth>(currentYearMonth);
   const [currency, setCurrency] = useState<string>(currencies[0] ?? 'USD');
@@ -70,6 +72,7 @@ export default function ReportsScreen() {
   const change = summary && previous ? changeLabel(summary.expense, previous.expense) : null;
   const fractionDigits = getCurrency(activeCurrency).fractionDigits;
   const compact = (minor: number) => {
+    if (masked) return formatMoney(minor, activeCurrency, { bare: true, masked });
     const units = minor / 10 ** fractionDigits;
     if (units >= 1_000_000) return `${(units / 1_000_000).toFixed(1)}M`;
     if (units >= 10_000) return `${Math.round(units / 1000)}k`;
@@ -79,7 +82,12 @@ export default function ReportsScreen() {
 
   return (
     <Screen
-      header={{ title: 'Reports', large: true, subtitle: 'Where the money went.' }}
+      header={{
+        title: 'Reports',
+        large: true,
+        subtitle: 'Where the money went.',
+        right: <AmountsToggle />,
+      }}
       bottomInset={theme.layout.tabBarHeight}
     >
       <MonthSwitcher value={month} onChange={setMonth} />
