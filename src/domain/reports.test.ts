@@ -20,10 +20,28 @@ const line = (
 
 describe('summarizePeriod', () => {
   const lines: ReportLine[] = [
-    line({ kind: 'expense', amountMinor: -1000, categoryId: 'food', postedDate: '2026-10-01' }),
-    line({ kind: 'expense', amountMinor: -3000, categoryId: 'food', postedDate: '2026-10-02' }),
-    line({ kind: 'expense', amountMinor: -6000, categoryId: 'rent', postedDate: '2026-10-02' }),
-    line({ kind: 'income', amountMinor: 50000, categoryId: 'salary' }),
+    line({
+      transactionId: 'e1',
+      kind: 'expense',
+      amountMinor: -1000,
+      categoryId: 'food',
+      postedDate: '2026-10-01',
+    }),
+    line({
+      transactionId: 'e2',
+      kind: 'expense',
+      amountMinor: -3000,
+      categoryId: 'food',
+      postedDate: '2026-10-02',
+    }),
+    line({
+      transactionId: 'e3',
+      kind: 'expense',
+      amountMinor: -6000,
+      categoryId: 'rent',
+      postedDate: '2026-10-02',
+    }),
+    line({ transactionId: 'i1', kind: 'income', amountMinor: 50000, categoryId: 'salary' }),
     line({ kind: 'transfer', amountMinor: -20000, categoryId: null }),
     line({ kind: 'transfer', amountMinor: 20000, categoryId: null }),
     line({ kind: 'opening', amountMinor: 99999, categoryId: null }),
@@ -43,6 +61,21 @@ describe('summarizePeriod', () => {
   it('never mixes currencies', () => {
     expect(summarizePeriod(lines, 'IQD').expense).toBe(250000);
     expect(summarizePeriod(lines, 'IQD').income).toBe(0);
+  });
+
+  it('counts a split expense once and only your share as spending', () => {
+    // $30 paid from Bank: $18 of it was a colleague's order, receivable from them.
+    const split: ReportLine[] = [
+      line({ transactionId: 's1', kind: 'expense', amountMinor: -3000, accountId: 'bank' }),
+      line({ transactionId: 's1', kind: 'expense', amountMinor: 1800, accountId: 'ali' }),
+    ];
+    const summary = summarizePeriod(split, 'USD');
+    expect(summary.expense).toBe(1200);
+    expect(summary.expenseCount).toBe(1);
+    expect(summary.expenseByCategory).toEqual([
+      { categoryId: 'food', total: 1200, count: 1, share: 1 },
+    ]);
+    expect(expenseTotalsByCurrency(split).get('USD')).toBe(1200);
   });
 
   it('ranks categories with shares and groups spending by day', () => {

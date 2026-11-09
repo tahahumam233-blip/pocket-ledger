@@ -72,5 +72,9 @@ Run on a real phone after changes to screens, storage or notifications.
 - [ ] Add a party with an opening balance marked Payable; they appear under Payables.
 - [ ] A due date shows "Due in N days" and turns red when overdue.
 - [ ] Removing a party with history archives them; Show archived lists them and Restore brings them back.
+- [ ] Split: pay $30 from Bank, tap "Split with a party", add a colleague and type $18. The card shows Your expense $12.00; Bank drops by $30; Reports show $12 and one expense; the colleague's statement shows "Paid on behalf from Bank: Food & Drink" with a debit of $18.
+- [ ] Split equally between you and two colleagues; the odd cent stays with you. Editing the entry changes every share together, and deleting it removes the expense and the receivables at once.
+- [ ] A share equal to the whole payment shows the warning and "Post as loan given", which switches to a loan given to that colleague.
+- [ ] The colleague repays in cash: Receive, Repayment received, Pocket. Their balance reaches nil.
 - [ ] Activity: the Loans filter shows only loan entries; searching a party's name finds their entries.
 - [ ] Reports never count loans or repayments.

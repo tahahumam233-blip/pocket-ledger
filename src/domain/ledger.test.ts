@@ -10,6 +10,7 @@ import {
   type TransactionWithLines,
   validateDraft,
   moneyAccountChange,
+  ownShareOf,
 } from './ledger';
 
 const account = (
@@ -51,6 +52,7 @@ const context: DraftContext = {
     ['bank', account('bank')],
     ['old', account('old', '2026-01-02T00:00:00.000Z')],
     ['ali', account('ali', null, 'person')],
+    ['sara', account('sara', null, 'person')],
   ]),
   categories: new Map([
     ['food', category('food', 'expense')],
@@ -539,5 +541,85 @@ describe('moneyAccountChange', () => {
   it('ignores the sign of the amount it is given', () => {
     expect(moneyAccountChange({ kind: 'expense' }, -2500)).toBe(-2500);
     expect(moneyAccountChange({ kind: 'income' }, 0)).toBe(0);
+  });
+});
+
+describe('split expenses', () => {
+  const split = (shares: { personId: string; amountMinor: number }[], amountMinor = 3000) => ({
+    kind: 'expense' as const,
+    accountId: 'bank',
+    currency: 'USD',
+    amountMinor,
+    categoryId: 'food',
+    postedDate: '2026-10-10',
+    note: 'Team lunch',
+    shares,
+  });
+
+  it('credits the payment once and debits each party for its share in one entry', () => {
+    const result = validateDraft(
+      split([
+        { personId: 'ali', amountMinor: 1000 },
+        { personId: 'sara', amountMinor: 800 },
+      ]),
+      context,
+    );
+    if (!result.ok) throw new Error('expected a valid split');
+    expect(result.kind).toBe('expense');
+    expect(result.lines).toEqual([
+      { accountId: 'bank', currency: 'USD', amountMinor: -3000, role: 'main' },
+      { accountId: 'ali', currency: 'USD', amountMinor: 1000, role: 'destination' },
+      { accountId: 'sara', currency: 'USD', amountMinor: 800, role: 'destination' },
+    ]);
+    // What is left after the shares is your expense: the lines net to -1200.
+    expect(result.lines.reduce((sum, line) => sum + line.amountMinor, 0)).toBe(-1200);
+    expect(ownShareOf(3000, [{ amountMinor: 1000 }, { amountMinor: 800 }])).toBe(1200);
+  });
+
+  it('round-trips through draftFromTransaction for editing', () => {
+    const draft = split([{ personId: 'ali', amountMinor: 1800 }]);
+    const result = validateDraft(draft, context);
+    if (!result.ok) throw new Error('expected a valid split');
+    const transaction: TransactionWithLines = {
+      id: 't1',
+      kind: 'expense',
+      debtAction: null,
+      postedDate: draft.postedDate,
+      categoryId: 'food',
+      note: draft.note,
+      createdAt: '2026-10-10T10:00:00.000Z',
+      updatedAt: '2026-10-10T10:00:00.000Z',
+      deletedAt: null,
+      lines: result.lines.map((line, index) => ({ ...line, id: `l${index}`, transactionId: 't1' })),
+    };
+    expect(draftFromTransaction(transaction)).toEqual(draft);
+  });
+
+  it('rejects shares that leave nothing as your expense, duplicates and non-parties', () => {
+    const codes = (draft: ReturnType<typeof split>) => {
+      const result = validateDraft(draft, context);
+      return result.ok ? [] : result.errors.map((error) => error.code);
+    };
+    expect(codes(split([{ personId: 'ali', amountMinor: 3000 }]))).toContain('share_too_large');
+    expect(
+      codes(
+        split([
+          { personId: 'ali', amountMinor: 500 },
+          { personId: 'ali', amountMinor: 500 },
+        ]),
+      ),
+    ).toContain('share_duplicate');
+    expect(codes(split([{ personId: 'pocket', amountMinor: 500 }]))).toContain('not_a_person');
+    expect(codes(split([{ personId: '', amountMinor: 500 }]))).toContain('person_required');
+    expect(codes(split([{ personId: 'ali', amountMinor: 0 }]))).toContain('amount_not_positive');
+    expect(
+      codes({ ...split([{ personId: 'sara', amountMinor: 500 }]), accountId: 'ali' }),
+    ).toContain('person_not_allowed');
+  });
+
+  it('keeps a plain expense unchanged when there are no shares', () => {
+    const result = validateDraft(split([]), context);
+    if (!result.ok) throw new Error('expected a valid expense');
+    expect(result.lines).toHaveLength(1);
   });
 });

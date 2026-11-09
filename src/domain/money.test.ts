@@ -7,6 +7,7 @@ import {
   formatNumber,
   minorToDecimalString,
   parseAmount,
+  splitEvenly,
   sumMinor,
 } from './money';
 
@@ -104,5 +105,21 @@ describe('sumMinor', () => {
     expect(sumMinor([100, -40, 15])).toBe(75);
     expect(() => sumMinor([1.5])).toThrow(RangeError);
     expect(() => sumMinor([Number.MAX_SAFE_INTEGER, 1])).toThrow(RangeError);
+  });
+});
+
+describe('splitEvenly', () => {
+  it('splits into parts that differ by at most one minor unit and add up exactly', () => {
+    expect(splitEvenly(3000, 2)).toEqual([1500, 1500]);
+    expect(splitEvenly(1000, 3)).toEqual([334, 333, 333]);
+    expect(splitEvenly(5, 4)).toEqual([2, 1, 1, 1]);
+    const parts = splitEvenly(10001, 7);
+    expect(parts.reduce((sum, part) => sum + part, 0)).toBe(10001);
+    expect(Math.max(...parts) - Math.min(...parts)).toBeLessThanOrEqual(1);
+  });
+
+  it('returns nothing for an invalid number of parts', () => {
+    expect(splitEvenly(1000, 0)).toEqual([]);
+    expect(splitEvenly(1000, 1.5)).toEqual([]);
   });
 });

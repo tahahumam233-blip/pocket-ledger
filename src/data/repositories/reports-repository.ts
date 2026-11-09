@@ -111,7 +111,9 @@ export function createReportsRepository(db: SqlExecutor) {
         `SELECT t.id AS transaction_id, t.posted_date, t.created_at, t.kind, t.debt_action,
                 l.amount_minor, t.note, c.name AS category_name,
                 (SELECT a2.name FROM ledger_lines l2 JOIN accounts a2 ON a2.id = l2.account_id
-                 WHERE l2.transaction_id = t.id AND l2.id <> l.id LIMIT 1) AS counter_account_name
+                 WHERE l2.transaction_id = t.id AND l2.id <> l.id
+                 ORDER BY CASE WHEN a2.account_class = 'money' THEN 0 ELSE 1 END, l2.rowid
+                 LIMIT 1) AS counter_account_name
          FROM ledger_lines l
          JOIN transactions t ON t.id = l.transaction_id
          LEFT JOIN categories c ON c.id = t.category_id

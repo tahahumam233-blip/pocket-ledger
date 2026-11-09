@@ -26,7 +26,7 @@ Added in schema version 2: `debt_action` (`lend` | `borrow` | `collect` | `repay
 
 ### ledger_lines
 
-`id`, `transaction_id` (cascade delete), `account_id`, `currency` (ISO code), `amount_minor` (signed integer), `role` (`main` | `source` | `destination`).
+`id`, `transaction_id` (cascade delete), `account_id`, `currency` (ISO code), `amount_minor` (signed integer), `role` (`main` | `source` | `destination`). An expense has one `main` line on the account that paid; a split expense adds one `destination` line per party for its share, so the lines net to minus your own share.
 
 - Expense: one `main` line, negative. Income: one `main` line, positive.
 - Transfer: `source` negative and `destination` positive in the same currency, summing to zero.

@@ -44,21 +44,23 @@ export function isReportable(kind: TransactionKind): boolean {
 }
 
 function categoryTotals(lines: ReportLine[], sign: 1 | -1): CategoryTotal[] {
-  const totals = new Map<string | null, { total: MinorUnits; count: number }>();
+  // A split expense has several lines (the payment and each party's share), so
+  // entries are counted once each and totals net the lines.
+  const totals = new Map<string | null, { total: MinorUnits; entries: Set<string> }>();
   let grand = 0;
   for (const line of lines) {
     const magnitude = sign * line.amountMinor;
     grand += magnitude;
-    const entry = totals.get(line.categoryId) ?? { total: 0, count: 0 };
+    const entry = totals.get(line.categoryId) ?? { total: 0, entries: new Set<string>() };
     entry.total += magnitude;
-    entry.count += 1;
+    entry.entries.add(line.transactionId);
     totals.set(line.categoryId, entry);
   }
   return [...totals.entries()]
     .map(([categoryId, entry]) => ({
       categoryId,
       total: entry.total,
-      count: entry.count,
+      count: entry.entries.size,
       share: grand === 0 ? 0 : entry.total / grand,
     }))
     .sort((a, b) => b.total - a.total);
@@ -88,8 +90,8 @@ export function summarizePeriod(
     expenseByCategory: categoryTotals(expenses, -1),
     incomeByCategory: categoryTotals(incomes, 1),
     expenseByDay,
-    expenseCount: expenses.length,
-    incomeCount: incomes.length,
+    expenseCount: new Set(expenses.map((line) => line.transactionId)).size,
+    incomeCount: new Set(incomes.map((line) => line.transactionId)).size,
   };
 }
 

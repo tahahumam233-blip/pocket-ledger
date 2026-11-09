@@ -54,7 +54,7 @@ export default function TransactionDetailScreen() {
   const receipts = query.data.receipts;
   const source = transaction.lines.find((line) => line.role === 'source');
   const destination = transaction.lines.find((line) => line.role === 'destination');
-  const single = transaction.lines[0];
+  const single = transaction.lines.find((line) => line.role === 'main') ?? transaction.lines[0];
 
   const remove = () => {
     const perform = async () => {
@@ -151,7 +151,7 @@ export default function TransactionDetailScreen() {
           </>
         ) : single ? (
           <ListRow
-            title="Account"
+            title={view.split ? 'Paid from' : 'Account'}
             trailing={
               <AppText variant="bodyMedium">
                 {lookup.accounts.get(single.accountId)?.name ?? 'Account'}
@@ -159,6 +159,44 @@ export default function TransactionDetailScreen() {
             }
             chevron={false}
           />
+        ) : null}
+        {view.split ? (
+          <>
+            <ListRow
+              title="Your expense"
+              trailing={
+                <MoneyText
+                  amountMinor={view.split.ownMinor}
+                  currency={view.split.currency}
+                  variant="amountSmall"
+                />
+              }
+              chevron={false}
+            />
+            {view.split.shares.map((share, index) => (
+              <ListRow
+                key={share.account?.id ?? index}
+                title={`Receivable from ${share.account?.name ?? 'party'}`}
+                trailing={
+                  <MoneyText
+                    amountMinor={share.amountMinor}
+                    currency={view.split?.currency ?? ''}
+                    variant="amountSmall"
+                    tone="income"
+                  />
+                }
+                onPress={
+                  share.account
+                    ? () =>
+                        router.push({
+                          pathname: '/person/[id]',
+                          params: { id: share.account?.id ?? '' },
+                        })
+                    : undefined
+                }
+              />
+            ))}
+          </>
         ) : null}
         {transaction.categoryId ? (
           <ListRow

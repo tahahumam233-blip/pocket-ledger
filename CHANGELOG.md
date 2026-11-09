@@ -2,6 +2,14 @@
 
 ## 1.0.0 (unreleased)
 
+### Added: split an expense with colleagues
+
+- "Split with a party" on an expense: add one or more colleagues and type each share, or tap Split equally. The card shows what is left as your expense.
+- One entry is posted: the account is credited with the whole payment, each colleague is debited with their share as a receivable, and only your part counts in Reports.
+- The colleague's statement shows "Paid on behalf from Bank: Food & Drink"; they settle it later with Receive, into Pocket, Bank or any account.
+- A share covering the whole payment offers "Post as loan given" instead.
+- The entry's detail shows the payment, your expense and each receivable; Activity shows who it was split with.
+
 ### Added: hide amounts
 
 - An eye button on the Home card, Activity and Reports hides every amount in the app behind dots (the currency stays), and shows them again with another tap.

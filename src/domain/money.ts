@@ -199,3 +199,17 @@ export function formatAmountDraft(draft: string): string {
   if (fractionPart === undefined) return grouped;
   return `${grouped}.${fractionPart}`;
 }
+
+/**
+ * Splits an amount into equal parts in minor units. Parts differ by at most one
+ * minor unit, and the larger ones come first, so the parts always add up exactly.
+ */
+export function splitEvenly(totalMinor: MinorUnits, parts: number): MinorUnits[] {
+  if (!Number.isInteger(parts) || parts <= 0) return [];
+  const base = Math.trunc(totalMinor / parts);
+  const remainder = totalMinor - base * parts;
+  const step = Math.sign(remainder);
+  return Array.from({ length: parts }, (_, index) =>
+    index < Math.abs(remainder) ? base + step : base,
+  );
+}

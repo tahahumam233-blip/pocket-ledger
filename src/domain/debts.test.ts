@@ -129,6 +129,29 @@ describe('statement of account', () => {
     );
   });
 
+  it('tells a share you paid for the party apart from an expense the party paid for you', () => {
+    const base = line({ postedDate: '2026-10-01', amountMinor: 1800 });
+    expect(
+      describeStatementLine({
+        ...base,
+        kind: 'expense',
+        debtAction: null,
+        categoryName: 'Food & Drink',
+        counterAccountName: 'Bank',
+      }),
+    ).toBe('Paid on behalf from Bank: Food & Drink');
+    expect(
+      describeStatementLine({
+        ...base,
+        kind: 'expense',
+        debtAction: null,
+        amountMinor: -1800,
+        categoryName: 'Food & Drink',
+        counterAccountName: null,
+      }),
+    ).toBe('Expense paid on your behalf: Food & Drink');
+  });
+
   it('exports as readable text and as CSV with a running balance', () => {
     const statement = buildStatement(lines, 'USD', { from: '2026-10-01', to: '2026-10-31' });
     const text = statementToText(statement, 'Ali', {

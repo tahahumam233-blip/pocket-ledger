@@ -728,6 +728,88 @@ describe.each(DRIVERS)('with %s', (_name, makeDriver) => {
       expect((await services.queries.home()).lastAccountIds.expense).toBeUndefined();
     });
 
+    it('splits a food order paid from the bank and collects the share in cash later', async () => {
+      const { pocket, bank, food, ali, sara } = await withPeople();
+      await services.ledger.createTransaction({
+        kind: 'income',
+        accountId: bank.id,
+        currency: 'USD',
+        amountMinor: 10000,
+        categoryId: (await repos.categories.list()).find((c) => c.kind === 'income')?.id ?? '',
+        postedDate: '2026-10-01',
+        note: '',
+      });
+      const split = await services.ledger.createTransaction({
+        kind: 'expense',
+        accountId: bank.id,
+        currency: 'USD',
+        amountMinor: 3000,
+        categoryId: food.id,
+        postedDate: '2026-10-12',
+        note: 'Team lunch',
+        shares: [
+          { personId: ali.id, amountMinor: 1200 },
+          { personId: sara.id, amountMinor: 600 },
+        ],
+      });
+
+      // One entry: the bank pays the whole order, each colleague owes their share.
+      expect(split.lines).toHaveLength(3);
+      expect(await balance(bank.id, 'USD')).toBe(7000);
+      expect(await balance(ali.id, 'USD')).toBe(1200);
+      expect(await balance(sara.id, 'USD')).toBe(-5000 + 600);
+      // Only your own part is an expense, counted once.
+      const report = await services.queries.monthReport({ year: 2026, month: 10 }, 'USD');
+      expect(report.summary.expense).toBe(1200);
+      expect(report.summary.expenseCount).toBe(1);
+      expect(report.summary.expenseByCategory[0]?.total).toBe(1200);
+      const home = await services.queries.home();
+      expect(home.debts.owedToYou.USD).toBe(1200);
+
+      const statement = await services.queries.personStatement(ali.id, 'USD');
+      expect(statement.entries.map((entry) => entry.description)).toEqual([
+        'Paid on behalf from Bank: Food & Drink',
+      ]);
+      expect(statement.entries[0]?.gaveMinor).toBe(1200);
+
+      // Ali pays back in cash: a repayment received into Pocket.
+      await debt('collect', ali.id, pocket.id, 1200, '2026-10-14');
+      expect(await balance(ali.id, 'USD')).toBe(0);
+      expect(await balance(pocket.id, 'USD')).toBe(11200);
+      expect(
+        (await services.queries.monthReport({ year: 2026, month: 10 }, 'USD')).summary.expense,
+      ).toBe(1200);
+
+      // Editing the split changes every line together.
+      const edited = await services.ledger.updateTransaction(split.id, {
+        kind: 'expense',
+        accountId: bank.id,
+        currency: 'USD',
+        amountMinor: 3000,
+        categoryId: food.id,
+        postedDate: '2026-10-12',
+        note: 'Team lunch',
+        shares: [{ personId: ali.id, amountMinor: 1500 }],
+      });
+      expect(edited.lines).toHaveLength(2);
+      expect(await balance(ali.id, 'USD')).toBe(300);
+      expect(await balance(sara.id, 'USD')).toBe(-5000);
+      expect(
+        (await services.queries.monthReport({ year: 2026, month: 10 }, 'USD')).summary.expense,
+      ).toBe(1500);
+
+      // Deleting removes the expense and the receivable at once; restoring brings both back.
+      await services.ledger.deleteTransaction(split.id);
+      expect(await balance(bank.id, 'USD')).toBe(10000);
+      expect(await balance(ali.id, 'USD')).toBe(-1200);
+      await services.ledger.restoreTransaction(split.id);
+      expect(await balance(bank.id, 'USD')).toBe(7000);
+      expect(await balance(ali.id, 'USD')).toBe(300);
+
+      // The default account for the next expense is the bank, never a colleague.
+      expect((await services.queries.home()).lastAccountIds.expense).toBe(bank.id);
+    });
+
     it('borrowing and paying back track what you owe', async () => {
       const { safe, sara } = await withPeople();
       expect(await balance(sara.id, 'USD')).toBe(-5000);

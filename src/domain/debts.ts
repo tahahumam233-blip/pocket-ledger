@@ -138,6 +138,14 @@ export function describeStatementLine(line: StatementSourceLine): string {
   }
   switch (line.kind) {
     case 'expense':
+      // A debit here is the party's share of something you paid for; a credit is
+      // something the party paid for you.
+      if (line.amountMinor > 0) {
+        const from = via ? ` from ${via}` : '';
+        return line.categoryName
+          ? `Paid on behalf${from}: ${line.categoryName}`
+          : `Paid on behalf${from}`;
+      }
       return line.categoryName
         ? `Expense paid on your behalf: ${line.categoryName}`
         : 'Expense paid on your behalf';

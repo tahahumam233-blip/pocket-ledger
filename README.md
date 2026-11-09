@@ -5,6 +5,7 @@ A private, offline spending tracker for iPhone, built with Expo and React Native
 - **Two currencies, never mixed.** Pick a primary and a secondary currency; every total is shown per currency.
 - **Safe, Pocket and Bank.** Three accounts out of the box (add more if you like), each holding both currencies.
 - **Snap receipts now, add the amount later.** Photos wait in an inbox until you record them.
+- **Split a bill.** Pay for a colleague's order with yours; their share becomes a receivable they repay later in cash or by bank, and only your part counts as spending.
 - **Receivables and payables.** Post loans given and received and their repayments, and share a statement of account (debit, credit, Dr/Cr balance) for each party.
 - **A nightly reminder** at the time you choose, as a daily Calendar alert (or a notification in the optional native build).
 - **Reports** by category and by month, transfers and exchanges between currencies, balance adjustments, CSV export, backup and restore with photos, dark mode, and an optional Face ID lock in the native build.

@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ScrollView, type ScrollViewInstance, StyleSheet, Switch, View } from 'react-native';
 
 import { AmountKeypad } from '@/components/amount-keypad';
 import { AppText } from '@/components/app-text';
@@ -41,7 +41,9 @@ import {
   minorToDecimalString,
   moneyAccountChange,
   type MoneySide,
+  ownShareOf,
   parseAmount,
+  splitEvenly,
   todayIsoDate,
   type TransactionDraft,
   type TransactionKind,
@@ -54,6 +56,7 @@ import { showToast } from '@/state/toast-store';
 import { KIND_LABELS } from '@/utils/transaction-presenter';
 
 import { AccountChooser } from './account-chooser';
+import { SplitCard } from './split-card';
 
 type EditableKind = 'expense' | 'income' | 'transfer' | 'debt';
 
@@ -198,7 +201,25 @@ export function TransactionForm({
     }
     return '';
   });
-  const [activeField, setActiveField] = useState<'main' | 'to'>('main');
+  /** Which amount the keypad types into: the total, the exchange amount or a share. */
+  const [activeField, setActiveField] = useState<'main' | 'to' | number>('main');
+  const scrollRef = useRef<ScrollViewInstance>(null);
+  /** Set when a party joins the split, so the card scrolls into view above the keypad. */
+  const [scrollToSplit, setScrollToSplit] = useState(false);
+  /** Parties this expense was partly paid for, with their shares as typed. */
+  const [shares, setShares] = useState<{ personId: string; draft: string }[]>(() =>
+    existingDraft?.kind === 'expense' && existingDraft.shares
+      ? existingDraft.shares.map((share) => ({
+          personId: share.personId,
+          draft: trimDraft(
+            minorToDecimalString(
+              share.amountMinor,
+              getCurrency(existingDraft.currency).fractionDigits,
+            ),
+          ),
+        }))
+      : [],
+  );
   const [signNegative] = useState(() =>
     Boolean(existingDraft && fixedKind && existingDraft.amountMinor < 0),
   );
@@ -249,7 +270,7 @@ export function TransactionForm({
   const [receipts, setReceipts] = useState<Receipt[]>(existingReceipts);
   const [pendingReceipt, setPendingReceipt] = useState<Receipt | null>(null);
   const [picker, setPicker] = useState<
-    'account' | 'category' | 'attach' | 'person' | 'party' | null
+    'account' | 'category' | 'attach' | 'person' | 'party' | 'share' | null
   >(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -342,6 +363,65 @@ export function TransactionForm({
     return archived ? [...accounts, archived] : accounts;
   };
 
+  const splitting = kind === 'expense' && !fixedKind && !onParty && shares.length > 0;
+  const shareMinors = shares.map((share) => {
+    const parsed = parseAmount(share.draft, digits);
+    return parsed.ok ? parsed.minor : 0;
+  });
+  const ownMinor = ownShareOf(
+    amountMinor,
+    shareMinors.map((minor) => ({ amountMinor: minor })),
+  );
+
+  const addShare = (person: Account) => {
+    const existing = shares.findIndex((share) => share.personId === person.id);
+    if (existing >= 0) {
+      setActiveField(existing);
+      return;
+    }
+    setShares([...shares, { personId: person.id, draft: '' }]);
+    setActiveField(shares.length);
+    setScrollToSplit(true);
+    setError(null);
+  };
+
+  const removeShare = (index: number) => {
+    setShares(shares.filter((_, position) => position !== index));
+    setActiveField((current) =>
+      typeof current === 'number'
+        ? current === index
+          ? 'main'
+          : current > index
+            ? current - 1
+            : current
+        : current,
+    );
+  };
+
+  /** Equal parts for everyone including you; any odd cent stays with you. */
+  const splitEqually = () => {
+    const parts = splitEvenly(amountMinor, shares.length + 1);
+    setShares(
+      shares.map((share, index) => ({
+        ...share,
+        draft: trimDraft(minorToDecimalString(parts[index + 1] ?? 0, digits)),
+      })),
+    );
+    setError(null);
+  };
+
+  /** A payment wholly for one colleague is a loan given to them, not your expense. */
+  const postSplitAsLoan = () => {
+    const only = shares[0];
+    if (!only) return;
+    setKind('debt');
+    setDebtAction('lend');
+    setPersonId(only.personId);
+    setShares([]);
+    setActiveField('main');
+    setError(null);
+  };
+
   const debtPreview = (() => {
     if (kind !== 'debt' || !person) return null;
     const current = balances.get(person.id)?.[currency] ?? 0;
@@ -356,6 +436,8 @@ export function TransactionForm({
     setCurrency(code);
     setAmountDraft('');
     setToAmountDraft('');
+    setShares((current) => current.map((share) => ({ ...share, draft: '' })));
+    setActiveField('main');
   };
 
   const attach = async (source: 'camera' | 'library') => {
@@ -431,6 +513,27 @@ export function TransactionForm({
         ...base,
       };
     }
+    if (kind === 'expense' && splitting) {
+      const missing = shareMinors.findIndex((minor) => minor <= 0);
+      if (missing >= 0) {
+        const name = people.find((item) => item.id === shares[missing]?.personId)?.name;
+        setError(`Enter ${name ? `${name}'s` : 'each'} share, or remove them from the split.`);
+        setActiveField(missing);
+        return null;
+      }
+      return {
+        kind,
+        accountId,
+        currency,
+        amountMinor: parsed.minor,
+        categoryId: categoryIds[categoryKind],
+        ...base,
+        shares: shares.map((share, index) => ({
+          personId: share.personId,
+          amountMinor: shareMinors[index] ?? 0,
+        })),
+      };
+    }
     return {
       kind,
       accountId,
@@ -450,6 +553,12 @@ export function TransactionForm({
       return `${DEBT_TOASTS[debtAction]} ${amount} ${debtGoesToPerson(debtAction) ? 'from' : 'into'} ${name}.`;
     }
     if (kind === 'transfer') return `Transfer posted: ${name} → ${toAccount?.name ?? ''}.`;
+    if (splitting) {
+      const names = shares.map(
+        (share) => people.find((item) => item.id === share.personId)?.name ?? 'party',
+      );
+      return `Paid ${amount} from ${name}: your expense ${formatMoney(ownMinor, currency, { masked })}, receivable from ${names.join(', ')}.`;
+    }
     if (onParty) {
       return kind === 'income'
         ? `Income of ${amount} posted, receivable from ${name}.`
@@ -581,6 +690,7 @@ export function TransactionForm({
       contentStyle={styles.content}
     >
       <ScrollView
+        ref={scrollRef}
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
@@ -659,7 +769,7 @@ export function TransactionForm({
             currency,
             activeField === 'main',
             () => setActiveField('main'),
-            exchange && kind === 'transfer' ? 'You send' : undefined,
+            exchange && kind === 'transfer' ? 'You send' : splitting ? 'Total paid' : undefined,
           )}
           {exchange && kind === 'transfer' && otherCurrency ? (
             <>
@@ -740,8 +850,16 @@ export function TransactionForm({
             onChange={(selected) => chooseAccount(selected.id)}
             testID="from-account"
             footer={
-              kind === 'expense' || kind === 'income' ? (
-                <View style={styles.inlineChip}>
+              !splitting && (kind === 'expense' || kind === 'income') ? (
+                <View style={styles.footerChips}>
+                  {kind === 'expense' ? (
+                    <Chip
+                      label="Split with a party"
+                      icon="people"
+                      size="sm"
+                      onPress={() => setPicker('share')}
+                    />
+                  ) : null}
                   <Chip
                     label={
                       kind === 'income' ? 'On account from a party' : 'Paid by a party instead'
@@ -754,6 +872,32 @@ export function TransactionForm({
               ) : undefined
             }
           />
+        ) : null}
+
+        {splitting ? (
+          <View
+            onLayout={(event) => {
+              if (!scrollToSplit) return;
+              setScrollToSplit(false);
+              scrollRef.current?.scrollTo({ y: event.nativeEvent.layout.y - 8, animated: true });
+            }}
+          >
+            <SplitCard
+              currency={currency}
+              rows={shares.map((share, index) => ({
+                person: people.find((item) => item.id === share.personId),
+                draft: share.draft,
+                active: activeField === index,
+              }))}
+              ownMinor={ownMinor}
+              totalMinor={amountMinor}
+              onFocus={(index) => setActiveField(index)}
+              onRemove={removeShare}
+              onAdd={() => setPicker('share')}
+              onSplitEqually={splitEqually}
+              onPostAsLoan={shares.length === 1 ? postSplitAsLoan : undefined}
+            />
+          </View>
         ) : null}
 
         {kind === 'transfer' && !fixedKind ? (
@@ -922,11 +1066,24 @@ export function TransactionForm({
         ]}
       >
         <AmountKeypad
-          value={activeField === 'to' ? toAmountDraft : amountDraft}
+          value={
+            activeField === 'to'
+              ? toAmountDraft
+              : typeof activeField === 'number'
+                ? (shares[activeField]?.draft ?? '')
+                : amountDraft
+          }
           onChange={(next) => {
             setError(null);
             if (activeField === 'to') setToAmountDraft(next);
-            else setAmountDraft(next);
+            else if (typeof activeField === 'number') {
+              const index = activeField;
+              setShares((current) =>
+                current.map((share, position) =>
+                  position === index ? { ...share, draft: next } : share,
+                ),
+              );
+            } else setAmountDraft(next);
           }}
           fractionDigits={
             activeField === 'to' && otherCurrency
@@ -954,6 +1111,16 @@ export function TransactionForm({
         currencies={currencies}
         value={onParty ? accountId : ''}
         onSelect={(selected: Account) => chooseAccount(selected.id)}
+        onCreate={(name) => mutate((s) => s.setup.createPerson({ name }))}
+      />
+      <PersonPickerSheet
+        visible={picker === 'share'}
+        onClose={() => setPicker(null)}
+        people={people}
+        balances={balances}
+        currencies={currencies}
+        value=""
+        onSelect={addShare}
         onCreate={(name) => mutate((s) => s.setup.createPerson({ name }))}
       />
       <PersonPickerSheet
@@ -1048,6 +1215,11 @@ const styles = StyleSheet.create({
   },
   inlineChip: {
     flexDirection: 'row',
+  },
+  footerChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
   },
   actionGrid: {
     flexDirection: 'row',

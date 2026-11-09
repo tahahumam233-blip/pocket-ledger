@@ -114,14 +114,23 @@ export const NOTE_MAX_LENGTH = 500;
 /** Kinds that count toward income and expense reports. */
 export const REPORTABLE_KINDS: ReadonlySet<TransactionKind> = new Set(['expense', 'income']);
 
+/** Part of a payment that was for someone else, such as a colleague's lunch. */
+export type ExpenseShare = { personId: string; amountMinor: MinorUnits };
+
 export type ExpenseDraft = {
   kind: 'expense';
   accountId: string;
   currency: CurrencyCode;
+  /** The whole payment that left the account, including any shares for other people. */
   amountMinor: MinorUnits;
   categoryId: string;
   postedDate: IsoDate;
   note: string;
+  /**
+   * Shares paid on behalf of parties. Each is debited to that party as a receivable
+   * in the same entry; only what is left counts as your expense.
+   */
+  shares?: ExpenseShare[];
 };
 
 export type IncomeDraft = {
@@ -192,6 +201,8 @@ export type DraftErrorCode =
   | 'not_a_person'
   | 'person_not_allowed'
   | 'debt_action_invalid'
+  | 'share_duplicate'
+  | 'share_too_large'
   | 'date_invalid'
   | 'note_too_long';
 
@@ -264,6 +275,65 @@ function checkPositiveAmount(amount: unknown, field: string, errors: DraftError[
   if (amount <= 0) {
     errors.push({ field, code: 'amount_not_positive', message: 'Enter an amount above zero.' });
   }
+}
+
+/**
+ * Shares must name distinct parties with amounts above zero, and leave part of the
+ * payment as your own expense; a payment wholly for others is a loan given instead.
+ */
+function checkShares(
+  context: DraftContext,
+  draft: Pick<ExpenseDraft, 'accountId' | 'amountMinor'>,
+  shares: readonly ExpenseShare[],
+  errors: DraftError[],
+): void {
+  const payer = context.accounts.get(draft.accountId);
+  if (payer?.accountClass === 'person') {
+    errors.push({
+      field: 'accountId',
+      code: 'person_not_allowed',
+      message: 'Pay a split from a cash or bank account.',
+    });
+  }
+  const seen = new Set<string>();
+  let total = 0;
+  shares.forEach((share, index) => {
+    const field = `shares.${index}`;
+    if (!share.personId) {
+      errors.push({ field, code: 'person_required', message: 'Choose a party for each share.' });
+    } else {
+      const person = checkAccount(context, share.personId, field, errors);
+      if (person && person.accountClass !== 'person') {
+        errors.push({ field, code: 'not_a_person', message: 'Choose a party for each share.' });
+      }
+      if (seen.has(share.personId)) {
+        errors.push({
+          field,
+          code: 'share_duplicate',
+          message: `${person?.name ?? 'That party'} is already in the split.`,
+        });
+      }
+      seen.add(share.personId);
+    }
+    checkPositiveAmount(share.amountMinor, `${field}.amountMinor`, errors);
+    if (isMinorUnits(share.amountMinor)) total += share.amountMinor;
+  });
+  if (isMinorUnits(draft.amountMinor) && draft.amountMinor > 0 && total >= draft.amountMinor) {
+    errors.push({
+      field: 'shares',
+      code: 'share_too_large',
+      message:
+        'The shares must leave part of the payment as your expense. For a payment wholly for someone else, post a loan given.',
+    });
+  }
+}
+
+/** What is left as your own expense after the shares paid for other people. */
+export function ownShareOf(
+  totalMinor: MinorUnits,
+  shares: readonly Pick<ExpenseShare, 'amountMinor'>[],
+): MinorUnits {
+  return shares.reduce((rest, share) => rest - share.amountMinor, totalMinor);
 }
 
 function checkSignedAmount(amount: unknown, field: string, errors: DraftError[]): void {
@@ -341,6 +411,10 @@ export function validateDraft(draft: TransactionDraft, context: DraftContext): D
       checkCurrency(context, draft.currency, 'currency', errors);
       checkPositiveAmount(draft.amountMinor, 'amountMinor', errors);
       checkCategory(context, draft.categoryId, draft.kind, errors);
+      const shares = draft.kind === 'expense' ? (draft.shares ?? []) : [];
+      if (draft.kind === 'expense' && shares.length > 0) {
+        checkShares(context, draft, shares, errors);
+      }
       if (errors.length > 0) return { ok: false, errors };
       const signed = draft.kind === 'expense' ? -draft.amountMinor : draft.amountMinor;
       return {
@@ -355,6 +429,13 @@ export function validateDraft(draft: TransactionDraft, context: DraftContext): D
             amountMinor: signed,
             role: 'main',
           },
+          // Dr each party for its share: a receivable, not part of your expense.
+          ...shares.map((share): LineInput => ({
+            accountId: share.personId,
+            currency: draft.currency,
+            amountMinor: share.amountMinor,
+            role: 'destination',
+          })),
         ],
       };
     }
@@ -512,10 +593,12 @@ export function isBalancedTransfer(lines: readonly Pick<LedgerLine, 'currency' |
 export function draftFromTransaction(transaction: TransactionWithLines): TransactionDraft | null {
   const { kind, postedDate, note, lines } = transaction;
   if (kind === 'expense' || kind === 'income') {
-    const line = lines[0];
+    const line = lines.find((item) => item.role === 'main') ?? lines[0];
     if (!line || !transaction.categoryId) return null;
-    return {
-      kind,
+    const shares = lines
+      .filter((item) => item !== line && item.role === 'destination')
+      .map((item): ExpenseShare => ({ personId: item.accountId, amountMinor: item.amountMinor }));
+    const base = {
       accountId: line.accountId,
       currency: line.currency,
       amountMinor: Math.abs(line.amountMinor),
@@ -523,6 +606,8 @@ export function draftFromTransaction(transaction: TransactionWithLines): Transac
       postedDate,
       note,
     };
+    if (kind === 'income') return { kind, ...base };
+    return shares.length > 0 ? { kind, ...base, shares } : { kind, ...base };
   }
   if (kind === 'transfer' && transaction.debtAction) {
     const source = lines.find((line) => line.role === 'source');

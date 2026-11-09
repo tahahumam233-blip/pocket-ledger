@@ -5,6 +5,7 @@ import {
   DEBT_ACTION_INFO,
   debtGoesToPerson,
   type LedgerLine,
+  ownShareOf,
   type TransactionWithLines,
 } from '@/domain';
 
@@ -20,6 +21,12 @@ export type TransactionPresentation = {
   neutral: boolean;
   /** The party involved, for loans and for entries posted on account. */
   person: Account | null;
+  /** For an expense split with parties: your own share and each party's receivable. */
+  split: {
+    currency: string;
+    ownMinor: number;
+    shares: { account: Account | null; amountMinor: number }[];
+  } | null;
 };
 
 export type Lookup = {
@@ -87,6 +94,7 @@ export function presentTransaction(
       kindLabel: DEBT_ACTION_INFO[action].label,
       neutral: true,
       person,
+      split: null,
     };
   }
 
@@ -110,10 +118,13 @@ export function presentTransaction(
       kindLabel: isExchange ? 'Exchange' : 'Transfer',
       neutral: true,
       person: null,
+      split: null,
     };
   }
 
-  const line = lines[0];
+  const line = lines.find((item) => item.role === 'main') ?? lines[0];
+  const shareLines =
+    kind === 'expense' ? lines.filter((item) => item !== line && item.role === 'destination') : [];
   const account = line ? lookup.accounts.get(line.accountId) : undefined;
   const person = account?.accountClass === 'person' ? account : null;
   const amounts = line ? [{ amountMinor: line.amountMinor, currency: line.currency }] : [];
@@ -130,6 +141,7 @@ export function presentTransaction(
       kindLabel,
       neutral: Boolean(person),
       person,
+      split: null,
     };
   }
 
@@ -141,15 +153,30 @@ export function presentTransaction(
       ? `Receivable from ${person.name}`
       : `Paid by ${person.name} (payable)`
     : account?.name;
+  const shareNames = shareLines.map((item) => lookup.accounts.get(item.accountId)?.name ?? 'party');
+  const split =
+    line && shareLines.length > 0
+      ? {
+          currency: line.currency,
+          ownMinor: ownShareOf(Math.abs(line.amountMinor), shareLines),
+          shares: shareLines.map((item) => ({
+            account: lookup.accounts.get(item.accountId) ?? null,
+            amountMinor: item.amountMinor,
+          })),
+        }
+      : null;
   return {
     title: category?.name ?? (kind === 'income' ? 'Income' : 'Expense'),
-    subtitle: [via, note].filter(Boolean).join(' · '),
+    subtitle: [via, shareNames.length ? `Split with ${shareNames.join(', ')}` : null, note]
+      .filter(Boolean)
+      .join(' · '),
     icon: category?.icon ?? (kind === 'income' ? 'cash' : 'cart'),
     color: category?.color ?? (kind === 'income' ? colors.income : colors.expense),
     amounts,
     kindLabel,
     neutral: false,
     person,
+    split,
   };
 }
 
