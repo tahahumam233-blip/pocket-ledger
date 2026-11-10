@@ -124,6 +124,13 @@ export function formatDateLabel(iso: IsoDate, today: IsoDate = todayIsoDate()): 
     : `${date.getDate()} ${month} ${date.getFullYear()}`;
 }
 
+/** A fixed, unambiguous date for documents, such as "12 Oct 2026". */
+export function formatShortDate(iso: IsoDate): string {
+  const date = parseIsoDate(iso);
+  const month = SHORT_MONTH_NAMES[date.getMonth()] ?? '';
+  return `${date.getDate()} ${month} ${date.getFullYear()}`;
+}
+
 export function formatLongDate(iso: IsoDate): string {
   const date = parseIsoDate(iso);
   const weekday = WEEKDAY_NAMES[date.getDay()] ?? '';

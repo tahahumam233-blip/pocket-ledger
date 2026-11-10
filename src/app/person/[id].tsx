@@ -14,7 +14,6 @@ import { PersonAvatar } from '@/components/person-avatar';
 import { PressableScale } from '@/components/pressable-scale';
 import { Screen } from '@/components/screen';
 import { SectionHeader } from '@/components/section-header';
-import brand from '@/config/brand.json';
 import { useTheme } from '@/design';
 import {
   currentYearMonth,
@@ -27,14 +26,11 @@ import {
   minorToDecimalString,
   monthRange,
   shiftYearMonth,
-  statementToCsv,
-  statementToText,
   suggestDebtAction,
 } from '@/domain';
-import { haptics } from '@/platform/haptics';
-import { shareText, shareTextFile } from '@/platform/share-file';
+import { StatementExportSheet } from '@/features/people/statement-export-sheet';
+import { useStatementExport } from '@/features/people/use-statement-export';
 import { useAmountsHidden, useLedgerStore } from '@/state/ledger-store';
-import { showToast } from '@/state/toast-store';
 import { useQuery } from '@/state/use-query';
 
 type Period = 'all' | 'this_month' | 'last_month' | 'this_year';
@@ -76,6 +72,7 @@ export default function PersonScreen() {
   const currencies = snapshot?.settings.currencies ?? ['USD'];
   const [currencyChoice, setCurrency] = useState<string | null>(null);
   const [period, setPeriod] = useState<Period>('all');
+  const [exportOpen, setExportOpen] = useState(false);
   const range = rangeFor(period);
 
   const person = useQuery(
@@ -92,6 +89,13 @@ export default function PersonScreen() {
     (s) => s.queries.personStatement(id, currency, range),
     [id, currency, range.from, range.to],
   );
+  const statementExport = useStatementExport({
+    statement: statement.data,
+    partyName: entry?.account.name ?? '',
+    today: snapshot?.today ?? '',
+    preparedBy: snapshot?.settings.userName ?? '',
+    onShared: () => setExportOpen(false),
+  });
 
   if (!entry) {
     return (
@@ -126,37 +130,6 @@ export default function PersonScreen() {
         currency,
       },
     });
-  };
-
-  const shareStatement = async () => {
-    if (!data) return;
-    try {
-      const shared = await shareText(
-        `Statement of account: ${account.name}`,
-        statementToText(data, account.name, { appName: brand.name, today: snapshot?.today }),
-      );
-      if (shared) {
-        haptics.success();
-        showToast('Statement ready to send.', { tone: 'success' });
-      }
-    } catch (caught) {
-      showToast(caught instanceof Error ? caught.message : 'Could not share.', { tone: 'danger' });
-    }
-  };
-
-  const exportStatement = async () => {
-    if (!data) return;
-    const safeName = account.name.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'party';
-    try {
-      await shareTextFile(
-        `statement-${safeName}-${currency}.csv`,
-        statementToCsv(data),
-        'text/csv',
-        'Statement',
-      );
-    } catch (caught) {
-      showToast(caught instanceof Error ? caught.message : 'Could not export.', { tone: 'danger' });
-    }
   };
 
   return (
@@ -404,24 +377,23 @@ export default function PersonScreen() {
           </Card>
         ) : null}
 
-        <View style={styles.actions}>
-          <Button
-            label="Share"
-            icon="share"
-            variant="soft"
-            onPress={() => void shareStatement()}
-            style={styles.action}
-            testID="share-statement"
-          />
-          <Button
-            label="Export CSV"
-            icon="download"
-            variant="soft"
-            onPress={() => void exportStatement()}
-            style={styles.action}
-          />
-        </View>
+        <Button
+          label="Export statement"
+          icon="share"
+          variant="soft"
+          onPress={() => setExportOpen(true)}
+          disabled={!data}
+          fullWidth
+          testID="export-statement"
+        />
       </View>
+      <StatementExportSheet
+        visible={exportOpen}
+        onClose={() => setExportOpen(false)}
+        summary={`${account.name} · ${currency} · ${PERIODS.find((option) => option.value === period)?.label ?? ''}`}
+        busy={statementExport.busy}
+        onChoose={(format) => void statementExport.exportAs(format)}
+      />
     </Screen>
   );
 }

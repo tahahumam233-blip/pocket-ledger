@@ -3,7 +3,7 @@ import { useCallback, useState } from 'react';
 import { haptics } from '@/platform/haptics';
 import { askConfirm } from '@/platform/confirm';
 import { pickTextFile } from '@/platform/pick-text-file';
-import { shareTextFile } from '@/platform/share-file';
+import { shareFile } from '@/platform/share-file';
 import { useLedgerStore } from '@/state/ledger-store';
 import { showToast } from '@/state/toast-store';
 
@@ -20,12 +20,7 @@ export function useBackup() {
     setBusy('backup');
     try {
       const backup = await services.backup.create();
-      const saved = await shareTextFile(
-        backup.fileName,
-        backup.content,
-        'application/json',
-        'Backup',
-      );
+      const saved = await shareFile(backup.fileName, backup.content, 'application/json', 'Backup');
       if (!saved) return;
       await mutate((s) => s.backup.markSaved(backup.exportedAt));
       haptics.success();

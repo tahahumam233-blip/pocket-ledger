@@ -8,7 +8,6 @@ import {
   describeBalance,
   describeStatementLine,
   type StatementSourceLine,
-  statementToCsv,
   statementToText,
   suggestDebtAction,
   summarizeDebts,
@@ -152,7 +151,7 @@ describe('statement of account', () => {
     ).toBe('Expense paid on your behalf: Food & Drink');
   });
 
-  it('exports as readable text and as CSV with a running balance', () => {
+  it('exports as readable text with a running balance', () => {
     const statement = buildStatement(lines, 'USD', { from: '2026-10-01', to: '2026-10-31' });
     const text = statementToText(statement, 'Ali', {
       appName: 'Pocket Ledger',
@@ -166,13 +165,6 @@ describe('statement of account', () => {
     expect(text).toContain('Total debits: $100.00');
     expect(text).toContain('Total credits: $65.00');
     expect(text).toContain('Sent from Pocket Ledger');
-
-    const csv = statementToCsv(statement).replace('﻿', '').trim().split('\r\n');
-    expect(csv[0]).toBe('Date,Description,Note,Debit (USD),Credit (USD),Balance (USD),Dr/Cr');
-    expect(csv[1]).toBe(',Opening balance b/f,,,,50.00,Dr');
-    expect(csv[2]).toBe('2026-10-02,Loan given from Pocket,Rent help,100.00,,150.00,Dr');
-    expect(csv[4]).toBe('2026-10-15,Expense paid on your behalf: Food & Drink,,,25.00,85.00,Dr');
-    expect(csv[5]).toBe(',Closing balance c/f,,100.00,65.00,85.00,Dr');
   });
 });
 

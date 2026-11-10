@@ -5,6 +5,7 @@ import {
   compareYearMonth,
   formatClockTime,
   formatDateLabel,
+  formatShortDate,
   isValidIsoDate,
   monthLabel,
   monthRange,
@@ -54,5 +55,11 @@ describe('dates', () => {
     expect(formatClockTime(21, 0)).toBe('9:00 PM');
     expect(formatClockTime(0, 5)).toBe('12:05 AM');
     expect(formatClockTime(12, 30)).toBe('12:30 PM');
+  });
+
+  it('formats a fixed short date for documents, whatever today is', () => {
+    expect(formatShortDate('2026-10-02')).toBe('2 Oct 2026');
+    expect(formatShortDate('2024-02-29')).toBe('29 Feb 2024');
+    expect(formatShortDate('2026-12-31')).toBe('31 Dec 2026');
   });
 });

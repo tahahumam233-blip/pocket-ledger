@@ -1,8 +1,7 @@
-import { escapeCsvCell } from './csv';
-import { type CurrencyCode, getCurrency } from './currency';
+import type { CurrencyCode } from './currency';
 import { formatDateLabel, type IsoDate, parseIsoDate } from './dates';
 import type { DebtAction, TransactionKind } from './ledger';
-import { formatMoney, minorToDecimalString, type MinorUnits } from './money';
+import { formatMoney, type MinorUnits } from './money';
 
 /**
  * Debts are tracked on party (person) accounts from your books' point of view:
@@ -283,59 +282,6 @@ export function statementToText(
   );
   if (options.appName) lines.push('', `Sent from ${options.appName}`);
   return lines.join('\n');
-}
-
-/** Dr for debit balances, Cr for credit balances, blank for nil. */
-function drCrMark(minor: MinorUnits): string {
-  if (minor > 0) return 'Dr';
-  if (minor < 0) return 'Cr';
-  return '';
-}
-
-/** A spreadsheet-friendly statement: debit, credit and a running Dr/Cr balance. */
-export function statementToCsv(statement: Statement): string {
-  const digits = getCurrency(statement.currency).fractionDigits;
-  const amount = (minor: MinorUnits) => (minor ? minorToDecimalString(minor, digits) : '');
-  const balance = (minor: MinorUnits) => minorToDecimalString(Math.abs(minor), digits);
-  const rows = [
-    [
-      'Date',
-      'Description',
-      'Note',
-      `Debit (${statement.currency})`,
-      `Credit (${statement.currency})`,
-      `Balance (${statement.currency})`,
-      'Dr/Cr',
-    ],
-    [
-      '',
-      'Opening balance b/f',
-      '',
-      '',
-      '',
-      balance(statement.openingMinor),
-      drCrMark(statement.openingMinor),
-    ],
-    ...statement.entries.map((entry) => [
-      entry.postedDate,
-      entry.description,
-      entry.note,
-      amount(entry.gaveMinor),
-      amount(entry.gotMinor),
-      balance(entry.balanceMinor),
-      drCrMark(entry.balanceMinor),
-    ]),
-    [
-      '',
-      'Closing balance c/f',
-      '',
-      minorToDecimalString(statement.totalGaveMinor, digits),
-      minorToDecimalString(statement.totalGotMinor, digits),
-      balance(statement.closingMinor),
-      drCrMark(statement.closingMinor),
-    ],
-  ];
-  return `\uFEFF${rows.map((row) => row.map(escapeCsvCell).join(',')).join('\r\n')}\r\n`;
 }
 
 export type DueStatus = { label: string; overdue: boolean };

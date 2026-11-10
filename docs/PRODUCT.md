@@ -26,7 +26,7 @@ One person who manages cash and bank money in two currencies and wants a calm da
 - Browse and search entries by month, type, currency, category and account.
 - See monthly reports by category and a six-month trend.
 - Reconcile an account to the amount actually counted.
-- Track receivables and payables per party: loan given, loan received, repayment received, repayment made, expenses paid by a party on your behalf, settle a balance, and a statement of account per party (debit, credit, Dr/Cr running balance, b/f and c/f) that can be shared as text or CSV.
+- Track receivables and payables per party: loan given, loan received, repayment received, repayment made, expenses paid by a party on your behalf, settle a balance, and a statement of account per party (debit, credit, Dr/Cr running balance, b/f and c/f) that can be exported as a PDF to send or print, as an Excel workbook to work on, or sent as plain text.
 - Receive a nightly reminder.
 - Export entries as CSV; optionally lock the app with biometrics.
 

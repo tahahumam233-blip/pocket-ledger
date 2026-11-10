@@ -68,7 +68,11 @@ Run on a real phone after changes to screens, storage or notifications.
 - [ ] On the party, "Receive" proposes "Repayment received" while the balance is receivable; the receivable drops.
 - [ ] "Expense paid by party" posts an expense that appears in Reports and credits the party.
 - [ ] "Settle USD balance" prefills the exact amount and leaves a nil balance.
-- [ ] Statement: periods change the opening balance b/f; Debit and Credit labels and Dr/Cr running balances are correct; opening + total debits − total credits = closing balance c/f, which matches the party balance; Share opens the share sheet with the text; Export CSV saves a file.
+- [ ] Statement: periods change the opening balance b/f; Debit and Credit labels and Dr/Cr running balances are correct; opening + total debits − total credits = closing balance c/f, which matches the party balance.
+- [ ] Export statement opens a sheet with PDF and Excel (and "Send as a text message instead"). PDF: the share sheet offers a file named Statement-Name-USD-date.pdf; it shows the blue card with the party, period and closing balance, four summary tiles, the table with Dr/Cr balances, totals and the balance in words; text can be selected; a long statement continues on further pages with the table heading and page numbers.
+- [ ] Excel: the file opens in Excel, Numbers or Google Sheets with a blue heading row, real dates and numbers (sorting and summing work), totals as formulas and the heading row frozen.
+- [ ] A party with an Arabic name exports a PDF that shows the name correctly; the Excel file shows it too.
+- [ ] With amounts hidden by the eye, exported files still contain the real figures.
 - [ ] Add a party with an opening balance marked Payable; they appear under Payables.
 - [ ] A due date shows "Due in N days" and turns red when overdue.
 - [ ] Removing a party with history archives them; Show archived lists them and Restore brings them back.

@@ -24,13 +24,15 @@ function isNotAllowed(error: unknown) {
  * Safari only allows sharing straight after a tap, so when preparing the file
  * took too long the person is asked to tap once more.
  */
-export async function shareTextFile(
+export async function shareFile(
   fileName: string,
-  content: string,
+  content: string | Uint8Array,
   mimeType: string,
   dialogTitle = 'Share',
 ): Promise<boolean> {
-  const file = new File([content], fileName, { type: mimeType });
+  // A copy with its own buffer, which is what File accepts for bytes.
+  const part = typeof content === 'string' ? content : new Uint8Array(content);
+  const file = new File([part], fileName, { type: mimeType });
   const canShareFiles =
     typeof navigator.share === 'function' &&
     typeof navigator.canShare === 'function' &&

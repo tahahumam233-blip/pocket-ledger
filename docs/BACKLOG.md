@@ -17,7 +17,9 @@ Not started; recorded so nothing is forgotten.
 - Settle a debt in the other currency (an exchange on the person's account).
 - Calendar alert for a person's "settle by" date in the web app.
 - Per-loan due dates and interest on loans.
-- A printable PDF statement of account.
+- Statement PDF in the native iOS build for names in scripts Helvetica lacks (Arabic, for example): the web app draws those pages, the native build currently shows "?" for such characters. Use expo-print or an embedded font.
+- Open an exported statement workbook in desktop Excel on Windows and macOS (verified with LibreOffice and openpyxl; written to the Excel file format rules).
+- A custom date range for statements, and the choice of PDF or Excel for the full ledger export in Settings.
 - Accounts and sync across devices (discussed; needs a decision on hosting and privacy).
 - Automated tests in Safari / WebKit for the web app (current end-to-end checks run in Chromium).
 - Optional encrypted backup files (password protected).

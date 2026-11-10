@@ -17,7 +17,7 @@ import { authenticate, canUseAppLock } from '@/platform/app-lock';
 import { USES_CALENDAR_REMINDER } from '@/platform/calendar-reminder';
 import { askConfirm } from '@/platform/confirm';
 import { haptics } from '@/platform/haptics';
-import { shareTextFile } from '@/platform/share-file';
+import { shareFile } from '@/platform/share-file';
 import { useLedgerStore, useServices } from '@/state/ledger-store';
 import { showToast } from '@/state/toast-store';
 
@@ -62,7 +62,7 @@ export default function SettingsScreen() {
     setExporting(true);
     try {
       const csv = await services.exporter.transactionsCsv();
-      const shared = await shareTextFile(csv.fileName, csv.content, 'text/csv', 'Export');
+      const shared = await shareFile(csv.fileName, csv.content, 'text/csv', 'Export');
       if (shared) {
         showToast(`Exported ${csv.rows} ${csv.rows === 1 ? 'line' : 'lines'}.`, {
           tone: 'success',

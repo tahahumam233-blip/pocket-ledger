@@ -2,13 +2,21 @@ import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { Share } from 'react-native';
 
+const UNIFORM_TYPES: Readonly<Record<string, string>> = {
+  'text/csv': 'public.comma-separated-values-text',
+  'application/json': 'public.json',
+  'application/pdf': 'com.adobe.pdf',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
+    'org.openxmlformats.spreadsheetml.sheet',
+};
+
 /**
- * Writes text to a temporary file and opens the system share sheet.
+ * Writes text or bytes to a temporary file and opens the system share sheet.
  * Resolves to false when the person closes the sheet without sharing.
  */
-export async function shareTextFile(
+export async function shareFile(
   fileName: string,
-  content: string,
+  content: string | Uint8Array,
   mimeType: string,
   dialogTitle = 'Share',
 ): Promise<boolean> {
@@ -19,16 +27,7 @@ export async function shareTextFile(
   if (!(await Sharing.isAvailableAsync())) {
     throw new Error('Sharing is not available on this device.');
   }
-  await Sharing.shareAsync(file.uri, {
-    mimeType,
-    dialogTitle,
-    UTI:
-      mimeType === 'text/csv'
-        ? 'public.comma-separated-values-text'
-        : mimeType === 'application/json'
-          ? 'public.json'
-          : undefined,
-  });
+  await Sharing.shareAsync(file.uri, { mimeType, dialogTitle, UTI: UNIFORM_TYPES[mimeType] });
   return true;
 }
 

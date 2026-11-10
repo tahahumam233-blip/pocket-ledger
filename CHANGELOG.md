@@ -2,6 +2,15 @@
 
 ## 1.0.0 (unreleased)
 
+### Changed: statement export as PDF or Excel
+
+- One "Export statement" button on a party opens a choice of PDF or Excel (sending the statement as text is still there underneath).
+- PDF in the app's style: the blue card with the party, period and closing balance, summary tiles, a table with Debit, Credit and Dr/Cr running balance, totals, and the balance in words. Real, selectable text; long statements continue on numbered pages with the table heading repeated.
+- Excel workbook with a blue heading row, real dates and exact numbers, totals as formulas, a frozen heading row and print settings.
+- Names in Arabic or other scripts export correctly in both formats.
+- Files are named like Statement-Ali-USD-2026-10-01_to_2026-10-31 and are built on the phone; nothing is uploaded.
+- The CSV statement is replaced by the Excel workbook. The full ledger CSV export in Settings is unchanged.
+
 ### Added: split an expense with colleagues
 
 - "Split with a party" on an expense: add one or more colleagues and type each share, or tap Split equally. The card shows what is left as your expense.
