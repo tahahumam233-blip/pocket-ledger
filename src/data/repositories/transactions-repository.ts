@@ -21,10 +21,18 @@ export type TransactionFilter = {
   search?: string;
   /** 'only' keeps money exchanged with people; 'exclude' leaves it out. */
   debts?: 'only' | 'exclude';
+  /** 'only' keeps currency exchanges; 'exclude' leaves them out. */
+  exchanges?: 'only' | 'exclude';
   includeDeleted?: boolean;
   limit?: number;
   offset?: number;
 };
+
+/** A transfer whose two sides are in different currencies. */
+const IS_EXCHANGE = `(t.kind = 'transfer' AND t.debt_action IS NULL AND EXISTS (
+  SELECT 1 FROM ledger_lines xs JOIN ledger_lines xd ON xd.transaction_id = xs.transaction_id
+   WHERE xs.transaction_id = t.id AND xs.role = 'source' AND xd.role = 'destination'
+     AND xs.currency <> xd.currency))`;
 
 function buildWhere(filter: TransactionFilter): { sql: string; params: SqlValue[] } {
   const clauses: string[] = [];
@@ -60,6 +68,9 @@ function buildWhere(filter: TransactionFilter): { sql: string; params: SqlValue[
   }
   if (filter.debts === 'only') clauses.push('t.debt_action IS NOT NULL');
   if (filter.debts === 'exclude') clauses.push('t.debt_action IS NULL');
+  if (filter.exchanges) {
+    clauses.push(`${filter.exchanges === 'only' ? '' : 'NOT '}${IS_EXCHANGE}`);
+  }
   if (filter.search && filter.search.trim()) {
     const needle = `%${filter.search.trim().toLowerCase()}%`;
     clauses.push(
@@ -255,6 +266,42 @@ export function createTransactionsRepository(db: SqlExecutor) {
       const result: Partial<Record<EntryKind, string>> = {};
       for (const row of rows) result[row.entry_kind] ??= row.account_id;
       return result;
+    },
+
+    /**
+     * The two sides of the most recent currency exchange, by posting date. The
+     * form offers its rate as a suggestion for the next exchange.
+     */
+    async lastExchange(): Promise<{
+      fromCurrency: string;
+      fromMinor: number;
+      toCurrency: string;
+      toMinor: number;
+    } | null> {
+      const row = await db.get<{
+        from_currency: string;
+        from_minor: number;
+        to_currency: string;
+        to_minor: number;
+      }>(
+        `SELECT s.currency AS from_currency, s.amount_minor AS from_minor,
+                d.currency AS to_currency, d.amount_minor AS to_minor
+           FROM transactions t
+           JOIN ledger_lines s ON s.transaction_id = t.id AND s.role = 'source'
+           JOIN ledger_lines d ON d.transaction_id = t.id AND d.role = 'destination'
+          WHERE t.deleted_at IS NULL AND t.kind = 'transfer' AND t.debt_action IS NULL
+            AND s.currency <> d.currency
+          ORDER BY t.posted_date DESC, t.created_at DESC, t.rowid DESC
+          LIMIT 1`,
+      );
+      return row
+        ? {
+            fromCurrency: row.from_currency,
+            fromMinor: Math.abs(row.from_minor),
+            toCurrency: row.to_currency,
+            toMinor: Math.abs(row.to_minor),
+          }
+        : null;
     },
 
     /** Permanently removes soft-deleted transactions older than the cutoff. */

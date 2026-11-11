@@ -4,8 +4,10 @@ import {
   type Category,
   DEBT_ACTION_INFO,
   debtGoesToPerson,
+  describeRate,
   type LedgerLine,
   ownShareOf,
+  quoteFromAmounts,
   type TransactionWithLines,
 } from '@/domain';
 
@@ -21,6 +23,8 @@ export type TransactionPresentation = {
   neutral: boolean;
   /** The party involved, for loans and for entries posted on account. */
   person: Account | null;
+  /** For a currency exchange: its rate, such as "1 USD = 1,310 IQD". */
+  rate: string | null;
   /** For an expense split with parties: your own share and each party's receivable. */
   split: {
     currency: string;
@@ -94,6 +98,7 @@ export function presentTransaction(
       kindLabel: DEBT_ACTION_INFO[action].label,
       neutral: true,
       person,
+      rate: null,
       split: null,
     };
   }
@@ -109,15 +114,28 @@ export function presentTransaction(
     const amounts = [source, destination]
       .filter((line): line is LedgerLine => Boolean(line))
       .map((line) => ({ amountMinor: line.amountMinor, currency: line.currency }));
+    const quote =
+      isExchange && source && destination
+        ? quoteFromAmounts(
+            source.amountMinor,
+            source.currency,
+            destination.amountMinor,
+            destination.currency,
+          )
+        : null;
+    const rate = quote ? describeRate(quote) : null;
+    // An exchange often stays in one account: dollars in Pocket for dinars in Pocket.
+    const route = source?.accountId === destination?.accountId ? from : `${from} → ${to}`;
     return {
       title: isExchange ? 'Exchange' : 'Transfer',
-      subtitle: note ? `${from} → ${to} · ${note}` : `${from} → ${to}`,
+      subtitle: [route, rate, note].filter(Boolean).join(' · '),
       icon: isExchange ? 'swap-horizontal' : 'arrow-forward-circle',
       color: colors.transfer,
       amounts: isExchange ? amounts : amounts.slice(1),
       kindLabel: isExchange ? 'Exchange' : 'Transfer',
       neutral: true,
       person: null,
+      rate,
       split: null,
     };
   }
@@ -141,6 +159,7 @@ export function presentTransaction(
       kindLabel,
       neutral: Boolean(person),
       person,
+      rate: null,
       split: null,
     };
   }
@@ -176,6 +195,7 @@ export function presentTransaction(
     kindLabel,
     neutral: false,
     person,
+    rate: null,
     split,
   };
 }

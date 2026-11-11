@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollView, type ScrollViewInstance, StyleSheet, Switch, View } from 'react-native';
+import { ScrollView, type ScrollViewInstance, StyleSheet, View } from 'react-native';
 
 import { AmountKeypad } from '@/components/amount-keypad';
 import { AppText } from '@/components/app-text';
@@ -43,6 +43,7 @@ import {
   type MoneySide,
   ownShareOf,
   parseAmount,
+  RATE_MAX_DECIMALS,
   splitEvenly,
   todayIsoDate,
   type TransactionDraft,
@@ -56,9 +57,22 @@ import { showToast } from '@/state/toast-store';
 import { KIND_LABELS } from '@/utils/transaction-presenter';
 
 import { AccountChooser } from './account-chooser';
+import { ExchangeCard, type ExchangeField } from './exchange-card';
+import {
+  applyQuote,
+  editGive,
+  editRate,
+  editReceive,
+  type ExchangeFields,
+  flipRate,
+  rateQuoteCurrency,
+  shownRate,
+  startExchangeFields,
+  swapSides,
+} from './exchange-fields';
 import { SplitCard } from './split-card';
 
-type EditableKind = 'expense' | 'income' | 'transfer' | 'debt';
+type EditableKind = 'expense' | 'income' | 'transfer' | 'exchange' | 'debt';
 
 type TransactionFormProps = {
   mode: 'create' | 'edit';
@@ -80,6 +94,7 @@ const KIND_OPTIONS: { value: EditableKind; label: string }[] = [
   { value: 'expense', label: 'Expense' },
   { value: 'income', label: 'Income' },
   { value: 'transfer', label: 'Transfer' },
+  { value: 'exchange', label: 'Exchange' },
   { value: 'debt', label: 'Loan' },
 ];
 
@@ -144,7 +159,7 @@ export function TransactionForm({
   /** The account last used for this kind of entry, then for any entry, then the first one. */
   const defaultAccountFor = (entry: EditableKind): string =>
     lastUsed(accounts, [
-      lastAccountIds?.[entry],
+      lastAccountIds?.[entry === 'exchange' ? 'transfer' : entry],
       lastAccountIds?.expense,
       lastAccountIds?.income,
       lastAccountIds?.transfer,
@@ -157,8 +172,12 @@ export function TransactionForm({
       : null;
 
   const [kind, setKind] = useState<EditableKind>(() => {
-    if (existingDraft && existingDraft.kind !== 'opening' && existingDraft.kind !== 'adjustment')
-      return existingDraft.kind;
+    if (existingDraft && existingDraft.kind !== 'opening' && existingDraft.kind !== 'adjustment') {
+      // An exchange is stored as a transfer between two currencies.
+      return existingDraft.kind === 'transfer' && existingDraft.toCurrency
+        ? 'exchange'
+        : existingDraft.kind;
+    }
     return initialKind;
   });
   const [currency, setCurrency] = useState<string>(
@@ -183,26 +202,41 @@ export function TransactionForm({
         ? trimDraft(initialAmount)
         : '',
   );
-  const [exchange, setExchange] = useState<boolean>(() =>
-    Boolean(existingDraft?.kind === 'transfer' && existingDraft.toCurrency),
-  );
-  const [toAmountDraft, setToAmountDraft] = useState<string>(() => {
-    if (
+  const exchange = kind === 'exchange';
+  /** The two currencies of an exchange; the amount given is always in `currency`. */
+  const sides = { giveCurrency: currency, receiveCurrency: otherCurrency ?? currency };
+  /** The amount received and the rate of an exchange; the amount given is `amountDraft`. */
+  const [exchangeState, setExchangeState] = useState<ExchangeFields>(() => {
+    const existing =
       existingDraft?.kind === 'transfer' &&
       existingDraft.toCurrency &&
       existingDraft.toAmountMinor !== undefined
-    ) {
-      return trimDraft(
-        minorToDecimalString(
-          existingDraft.toAmountMinor,
-          getCurrency(existingDraft.toCurrency).fractionDigits,
-        ),
-      );
-    }
-    return '';
+        ? existingDraft
+        : null;
+    return startExchangeFields({
+      sides,
+      give: existing ? amountDraft : '',
+      receive:
+        existing?.toCurrency && existing.toAmountMinor !== undefined
+          ? trimDraft(
+              minorToDecimalString(
+                existing.toAmountMinor,
+                getCurrency(existing.toCurrency).fractionDigits,
+              ),
+            )
+          : '',
+      lastRate: snapshot?.lastExchangeRate,
+      primaryCurrency: currencies[0],
+    });
   });
-  /** Which amount the keypad types into: the total, the exchange amount or a share. */
-  const [activeField, setActiveField] = useState<'main' | 'to' | number>('main');
+  const exchangeFields: ExchangeFields = { ...exchangeState, give: amountDraft };
+  const applyExchange = (next: ExchangeFields) => {
+    setAmountDraft(next.give);
+    setExchangeState(next);
+    setError(null);
+  };
+  /** Which amount the keypad types into: the total, an exchange box or a share. */
+  const [activeField, setActiveField] = useState<'main' | 'to' | 'rate' | number>('main');
   const scrollRef = useRef<ScrollViewInstance>(null);
   /** Set when a party joins the split, so the card scrolls into view above the keypad. */
   const [scrollToSplit, setScrollToSplit] = useState(false);
@@ -242,6 +276,12 @@ export function TransactionForm({
     const from = initialAccountId ?? defaultAccountFor(initialKind);
     return accounts.find((account) => account.id !== from)?.id ?? '';
   });
+  /** Where an exchange is received; until chosen, the same account it is paid from. */
+  const [exchangeToId, setExchangeToId] = useState<string | null>(() =>
+    existingDraft?.kind === 'transfer' && existingDraft.toCurrency
+      ? existingDraft.toAccountId
+      : null,
+  );
   /** Once the account is picked by hand it stays put; until then it follows the entry kind. */
   const [accountTouched, setAccountTouched] = useState(
     () => Boolean(existingDraft) || Boolean(initialAccountId),
@@ -289,22 +329,30 @@ export function TransactionForm({
   const account =
     accounts.find((item) => item.id === accountId) ?? people.find((item) => item.id === accountId);
   const person = people.find((item) => item.id === personId);
-  const toAccount = accounts.find((item) => item.id === toAccountId);
+  const exchangeToAccountId = exchangeToId ?? accountId;
+  const toAccount = accounts.find(
+    (item) => item.id === (exchange ? exchangeToAccountId : toAccountId),
+  );
   const categoryKind: 'expense' | 'income' = kind === 'income' ? 'income' : 'expense';
   const category = categories.find((item) => item.id === categoryIds[categoryKind]);
-  const effectiveKind: keyof typeof KIND_LABELS = fixedKind ?? kind;
+  const effectiveKind: keyof typeof KIND_LABELS =
+    fixedKind ?? (kind === 'exchange' ? 'transfer' : kind);
   const title =
-    kind === 'debt' && !fixedKind
+    exchange && !fixedKind
       ? mode === 'edit'
-        ? 'Edit loan entry'
-        : 'New loan entry'
-      : mode === 'edit'
-        ? `Edit ${KIND_LABELS[effectiveKind].toLowerCase()}`
-        : `New ${KIND_LABELS[kind].toLowerCase()}`;
+        ? 'Edit exchange'
+        : 'New exchange'
+      : kind === 'debt' && !fixedKind
+        ? mode === 'edit'
+          ? 'Edit loan entry'
+          : 'New loan entry'
+        : mode === 'edit'
+          ? `Edit ${KIND_LABELS[effectiveKind].toLowerCase()}`
+          : `New ${KIND_LABELS[effectiveKind].toLowerCase()}`;
   const accent =
     kind === 'income'
       ? theme.colors.income
-      : kind === 'transfer'
+      : kind === 'transfer' || kind === 'exchange'
         ? theme.colors.transfer
         : kind === 'debt'
           ? theme.colors.primary
@@ -327,7 +375,8 @@ export function TransactionForm({
     setError(null);
     setActiveField('main');
     const wasOnParty = people.some((item) => item.id === accountId);
-    if (!accountTouched || ((next === 'transfer' || next === 'debt') && wasOnParty)) {
+    const ownAccountOnly = next === 'transfer' || next === 'exchange' || next === 'debt';
+    if (!accountTouched || (ownAccountOnly && wasOnParty)) {
       const nextAccount = defaultAccountFor(next);
       setAccountId(nextAccount);
       if (nextAccount === toAccountId) {
@@ -338,12 +387,13 @@ export function TransactionForm({
 
   const parsedAmount = parseAmount(amountDraft, digits);
   const amountMinor = parsedAmount.ok ? parsedAmount.minor : 0;
-  const parsedTo = otherCurrency
-    ? parseAmount(toAmountDraft, getCurrency(otherCurrency).fractionDigits)
+  const parsedReceive = otherCurrency
+    ? parseAmount(exchangeState.receive, getCurrency(otherCurrency).fractionDigits)
     : null;
-  const toAmountMinor = exchange && parsedTo?.ok ? parsedTo.minor : amountMinor;
+  const receiveMinor = exchange && parsedReceive?.ok ? parsedReceive.minor : 0;
+  const toAmountMinor = exchange ? receiveMinor : amountMinor;
   const fromSide: MoneySide =
-    kind === 'transfer'
+    kind === 'transfer' || kind === 'exchange'
       ? { kind: 'transfer', side: 'from' }
       : kind === 'debt'
         ? { kind: 'debt', action: debtAction }
@@ -435,7 +485,6 @@ export function TransactionForm({
     if (code === currency) return;
     setCurrency(code);
     setAmountDraft('');
-    setToAmountDraft('');
     setShares((current) => current.map((share) => ({ ...share, draft: '' })));
     setActiveField('main');
   };
@@ -486,24 +535,28 @@ export function TransactionForm({
         ...base,
       };
     }
-    if (kind === 'transfer') {
-      if (exchange && otherCurrency) {
-        const parsedTo = parseAmount(toAmountDraft, getCurrency(otherCurrency).fractionDigits);
-        if (!parsedTo.ok || parsedTo.minor <= 0) {
-          setError(`Enter the amount received in ${otherCurrency}.`);
-          return null;
-        }
-        return {
-          kind,
-          fromAccountId: accountId,
-          toAccountId,
-          currency,
-          amountMinor: parsed.minor,
-          toCurrency: otherCurrency,
-          toAmountMinor: parsedTo.minor,
-          ...base,
-        };
+    if (kind === 'exchange') {
+      if (!otherCurrency) {
+        setError('An exchange needs two currencies. Add a second one in Settings.');
+        return null;
       }
+      if (receiveMinor <= 0) {
+        setError(`Enter the amount received in ${otherCurrency}, or the rate.`);
+        setActiveField('to');
+        return null;
+      }
+      return {
+        kind: 'transfer',
+        fromAccountId: accountId,
+        toAccountId: exchangeToAccountId,
+        currency,
+        amountMinor: parsed.minor,
+        toCurrency: otherCurrency,
+        toAmountMinor: receiveMinor,
+        ...base,
+      };
+    }
+    if (kind === 'transfer') {
       return {
         kind,
         fromAccountId: accountId,
@@ -551,6 +604,12 @@ export function TransactionForm({
     if (fixedKind) return `${KIND_LABELS[effectiveKind]} posted.`;
     if (kind === 'debt') {
       return `${DEBT_TOASTS[debtAction]} ${amount} ${debtGoesToPerson(debtAction) ? 'from' : 'into'} ${name}.`;
+    }
+    if (kind === 'exchange') {
+      const received = formatMoney(receiveMinor, otherCurrency ?? currency, { masked });
+      return exchangeToAccountId === accountId
+        ? `Exchanged ${amount} for ${received} in ${name}.`
+        : `Exchanged ${amount} from ${name} for ${received} into ${toAccount?.name ?? ''}.`;
     }
     if (kind === 'transfer') return `Transfer posted: ${name} → ${toAccount?.name ?? ''}.`;
     if (splitting) {
@@ -703,7 +762,7 @@ export function TransactionForm({
               color:
                 option.value === 'income'
                   ? theme.colors.income
-                  : option.value === 'transfer'
+                  : option.value === 'transfer' || option.value === 'exchange'
                     ? theme.colors.transfer
                     : option.value === 'debt'
                       ? theme.colors.primary
@@ -754,41 +813,69 @@ export function TransactionForm({
           </View>
         ) : null}
 
-        <View
-          style={[
-            styles.amountCard,
-            {
-              backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.border,
-              borderRadius: theme.radii.xxl,
-            },
-          ]}
-        >
-          {amountDisplay(
-            amountDraft,
-            currency,
-            activeField === 'main',
-            () => setActiveField('main'),
-            exchange && kind === 'transfer' ? 'You send' : splitting ? 'Total paid' : undefined,
-          )}
-          {exchange && kind === 'transfer' && otherCurrency ? (
-            <>
-              <View style={[styles.divider, { backgroundColor: theme.colors.border }]} />
-              {amountDisplay(
-                toAmountDraft,
-                otherCurrency,
-                activeField === 'to',
-                () => setActiveField('to'),
-                'They receive',
-              )}
-            </>
-          ) : null}
-          {currencies.length > 1 ? (
-            <View style={styles.currencyRow}>
-              <CurrencyToggle currencies={currencies} value={currency} onChange={switchCurrency} />
-            </View>
-          ) : null}
-        </View>
+        {exchange && !fixedKind ? (
+          <ExchangeCard
+            giveCurrency={sides.giveCurrency}
+            receiveCurrency={sides.receiveCurrency}
+            giveDraft={amountDraft}
+            receiveDraft={exchangeState.receive}
+            rate={shownRate(exchangeFields, sides)}
+            rateBase={exchangeState.rateBase}
+            rateQuote={rateQuoteCurrency(exchangeFields, sides)}
+            active={
+              activeField === 'main'
+                ? 'give'
+                : activeField === 'to'
+                  ? 'receive'
+                  : activeField === 'rate'
+                    ? 'rate'
+                    : null
+            }
+            onFocus={(field: ExchangeField) =>
+              setActiveField(field === 'give' ? 'main' : field === 'receive' ? 'to' : 'rate')
+            }
+            onSwap={() => {
+              if (!otherCurrency) return;
+              // The currencies change places, and the amounts go with them.
+              applyExchange(swapSides(exchangeFields, sides));
+              setCurrency(otherCurrency);
+            }}
+            onFlipRate={() => applyExchange(flipRate(exchangeFields, sides))}
+            lastRate={snapshot?.lastExchangeRate ?? null}
+            onUseLastRate={() => {
+              const quote = snapshot?.lastExchangeRate;
+              if (quote) applyExchange(applyQuote(exchangeFields, quote, sides));
+            }}
+          />
+        ) : (
+          <View
+            style={[
+              styles.amountCard,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
+                borderRadius: theme.radii.xxl,
+              },
+            ]}
+          >
+            {amountDisplay(
+              amountDraft,
+              currency,
+              activeField === 'main',
+              () => setActiveField('main'),
+              splitting ? 'Total paid' : undefined,
+            )}
+            {currencies.length > 1 ? (
+              <View style={styles.currencyRow}>
+                <CurrencyToggle
+                  currencies={currencies}
+                  value={currency}
+                  onChange={switchCurrency}
+                />
+              </View>
+            ) : null}
+          </View>
+        )}
 
         {kind === 'debt' && !fixedKind ? (
           <Card padded={false}>
@@ -905,11 +992,24 @@ export function TransactionForm({
             label="To"
             accounts={choosable(toAccountId)}
             value={toAccountId}
-            currency={exchange && otherCurrency ? otherCurrency : currency}
+            currency={currency}
             balances={balances}
             changeMinor={moneyAccountChange({ kind: 'transfer', side: 'to' }, toAmountMinor)}
             onChange={(selected) => setToAccountId(selected.id)}
             disabledId={accountId}
+            testID="to-account"
+          />
+        ) : null}
+
+        {exchange && !fixedKind ? (
+          <AccountChooser
+            label="Received into"
+            accounts={choosable(exchangeToAccountId)}
+            value={exchangeToAccountId}
+            currency={sides.receiveCurrency}
+            balances={balances}
+            changeMinor={moneyAccountChange({ kind: 'transfer', side: 'to' }, toAmountMinor)}
+            onChange={(selected) => setExchangeToId(selected.id)}
             testID="to-account"
           />
         ) : null}
@@ -932,7 +1032,7 @@ export function TransactionForm({
               onPress={() => setPicker('account')}
             />
           ) : null}
-          {kind !== 'transfer' && kind !== 'debt' && !fixedKind ? (
+          {(kind === 'expense' || kind === 'income') && !fixedKind ? (
             <SelectRow
               label="Category"
               value={category?.name ?? ''}
@@ -993,28 +1093,6 @@ export function TransactionForm({
           <DateField value={postedDate} onChange={setPostedDate} />
         </View>
 
-        {kind === 'transfer' && !fixedKind && otherCurrency ? (
-          <Card muted>
-            <View style={styles.switchRow}>
-              <View style={styles.switchText}>
-                <AppText variant="bodyMedium">Exchange currencies</AppText>
-                <AppText variant="caption" tone="muted">
-                  Send {currency} and receive {otherCurrency}.
-                </AppText>
-              </View>
-              <Switch
-                value={exchange}
-                onValueChange={(next) => {
-                  setExchange(next);
-                  setActiveField(next ? 'to' : 'main');
-                }}
-                trackColor={{ true: theme.colors.primary, false: theme.colors.borderStrong }}
-                thumbColor="#FFFFFF"
-              />
-            </View>
-          </Card>
-        ) : null}
-
         <View style={styles.block}>
           <View style={styles.receiptHeader}>
             <AppText variant="labelStrong">Receipt</AppText>
@@ -1067,16 +1145,25 @@ export function TransactionForm({
       >
         <AmountKeypad
           value={
-            activeField === 'to'
-              ? toAmountDraft
-              : typeof activeField === 'number'
-                ? (shares[activeField]?.draft ?? '')
-                : amountDraft
+            exchange && activeField === 'to'
+              ? exchangeState.receive
+              : exchange && activeField === 'rate'
+                ? shownRate(exchangeFields, sides)
+                : typeof activeField === 'number'
+                  ? (shares[activeField]?.draft ?? '')
+                  : amountDraft
           }
           onChange={(next) => {
             setError(null);
-            if (activeField === 'to') setToAmountDraft(next);
-            else if (typeof activeField === 'number') {
+            if (exchange) {
+              applyExchange(
+                activeField === 'to'
+                  ? editReceive(exchangeFields, next, sides)
+                  : activeField === 'rate'
+                    ? editRate(exchangeFields, next, sides)
+                    : editGive(exchangeFields, next, sides),
+              );
+            } else if (typeof activeField === 'number') {
               const index = activeField;
               setShares((current) =>
                 current.map((share, position) =>
@@ -1086,9 +1173,11 @@ export function TransactionForm({
             } else setAmountDraft(next);
           }}
           fractionDigits={
-            activeField === 'to' && otherCurrency
-              ? getCurrency(otherCurrency).fractionDigits
-              : digits
+            exchange && activeField === 'rate'
+              ? RATE_MAX_DECIMALS
+              : exchange && activeField === 'to'
+                ? getCurrency(sides.receiveCurrency).fractionDigits
+                : digits
           }
         />
       </View>
@@ -1202,10 +1291,6 @@ const styles = StyleSheet.create({
     gap: 6,
     maxWidth: '100%',
   },
-  divider: {
-    height: StyleSheet.hairlineWidth,
-    marginVertical: 4,
-  },
   currencyRow: {
     alignSelf: 'center',
     width: 180,
@@ -1237,11 +1322,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-  },
-  switchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
   },
   switchText: {
     flex: 1,

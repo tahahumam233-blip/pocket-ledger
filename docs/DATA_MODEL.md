@@ -30,7 +30,7 @@ Added in schema version 2: `debt_action` (`lend` | `borrow` | `collect` | `repay
 
 - Expense: one `main` line, negative. Income: one `main` line, positive.
 - Transfer: `source` negative and `destination` positive in the same currency, summing to zero.
-- Exchange: a transfer whose `destination` line is in the other currency with its own amount.
+- Exchange: a transfer whose `destination` line is in the other currency with its own amount. Both lines may be on the same account. No rate is stored.
 - Opening balance and adjustment: one signed `main` line.
 
 ### receipts

@@ -180,9 +180,30 @@ describe('validateDraft', () => {
       },
       context,
     );
-    expect(exchange.ok).toBe(false);
-    if (!exchange.ok) {
-      expect(exchange.errors.map((e) => e.code)).toEqual(['same_account']);
+    // Dollars in Pocket for dinars in Pocket: one account, two currencies.
+    expect(exchange.ok).toBe(true);
+    if (exchange.ok) {
+      expect(exchange.lines).toEqual([
+        { accountId: 'pocket', currency: 'USD', amountMinor: -10000, role: 'source' },
+        { accountId: 'pocket', currency: 'IQD', amountMinor: 131000, role: 'destination' },
+      ]);
+    }
+    // A plain transfer to the same account would do nothing, so it is still refused.
+    const sameAccount = validateDraft(
+      {
+        kind: 'transfer',
+        fromAccountId: 'pocket',
+        toAccountId: 'pocket',
+        currency: 'USD',
+        amountMinor: 10000,
+        postedDate: '2026-10-31',
+        note: '',
+      },
+      context,
+    );
+    expect(sameAccount.ok).toBe(false);
+    if (!sameAccount.ok) {
+      expect(sameAccount.errors.map((e) => e.code)).toEqual(['same_account']);
     }
 
     const ok = validateDraft(

@@ -269,6 +269,92 @@ describe.each(DRIVERS)('with %s', (_name, makeDriver) => {
       expect(usd.summary.expense).toBe(0);
       expect(iqd.summary.income).toBe(0);
     });
+
+    it('exchanges inside one account, remembers the rate and filters exchanges', async () => {
+      const { safe, pocket, bank } = await onboard();
+      expect((await services.queries.home()).lastExchangeRate).toBeNull();
+
+      // Dollars in Pocket for dinars in Pocket.
+      const first = await services.ledger.createTransaction({
+        kind: 'transfer',
+        fromAccountId: pocket.id,
+        toAccountId: pocket.id,
+        currency: 'USD',
+        amountMinor: 5000,
+        toCurrency: 'IQD',
+        toAmountMinor: 65500,
+        postedDate: '2026-10-08',
+        note: '',
+      });
+      expect(first.lines.map((line) => [line.accountId, line.currency, line.amountMinor])).toEqual([
+        [pocket.id, 'USD', -5000],
+        [pocket.id, 'IQD', 65500],
+      ]);
+      expect(await balance(pocket.id, 'USD')).toBe(5000);
+      expect(await balance(pocket.id, 'IQD')).toBe(65500);
+      // Each currency's total changes by its own side only; nothing is mixed.
+      let home = await services.queries.home();
+      expect(home.totals.USD).toBe(95000);
+      expect(home.totals.IQD).toBe(2065500);
+      expect(home.lastExchangeRate).toEqual({ base: 'USD', quote: 'IQD', rate: '1310' });
+
+      // A later exchange the other way sets the remembered rate, still quoted per dollar.
+      const second = await services.ledger.createTransaction({
+        kind: 'transfer',
+        fromAccountId: safe.id,
+        toAccountId: bank.id,
+        currency: 'IQD',
+        amountMinor: 264000,
+        toCurrency: 'USD',
+        toAmountMinor: 20000,
+        postedDate: '2026-10-20',
+        note: '',
+      });
+      home = await services.queries.home();
+      expect(home.lastExchangeRate).toEqual({ base: 'USD', quote: 'IQD', rate: '1320' });
+
+      // Neither exchange is income or an expense.
+      for (const currency of ['USD', 'IQD']) {
+        const report = await services.queries.monthReport({ year: 2026, month: 10 }, currency);
+        expect(report.summary.expense).toBe(0);
+        expect(report.summary.income).toBe(0);
+      }
+
+      // Activity can show exchanges on their own, apart from plain transfers.
+      const plain = await services.ledger.createTransaction({
+        kind: 'transfer',
+        fromAccountId: safe.id,
+        toAccountId: pocket.id,
+        currency: 'USD',
+        amountMinor: 1000,
+        postedDate: '2026-10-21',
+        note: '',
+      });
+      const ids = async (exchanges: 'only' | 'exclude') =>
+        (await repos.transactions.list({ kinds: ['transfer'], exchanges })).map((item) => item.id);
+      expect(await ids('only')).toEqual([second.id, first.id]);
+      expect(await ids('exclude')).toEqual([plain.id]);
+
+      // Deleting the latest exchange falls back to the one before; editing keeps both sides together.
+      await services.ledger.deleteTransaction(second.id);
+      expect((await services.queries.home()).lastExchangeRate?.rate).toBe('1310');
+      expect(await balance(bank.id, 'USD')).toBe(0);
+      await services.ledger.updateTransaction(first.id, {
+        kind: 'transfer',
+        fromAccountId: pocket.id,
+        toAccountId: safe.id,
+        currency: 'USD',
+        amountMinor: 4000,
+        toCurrency: 'IQD',
+        toAmountMinor: 52000,
+        postedDate: '2026-10-08',
+        note: '',
+      });
+      expect(await balance(pocket.id, 'USD')).toBe(7000);
+      expect(await balance(pocket.id, 'IQD')).toBe(0);
+      expect(await balance(safe.id, 'IQD')).toBe(2052000);
+      expect((await services.queries.home()).lastExchangeRate?.rate).toBe('1300');
+    });
   });
 
   describe('editing, deleting and restoring', () => {

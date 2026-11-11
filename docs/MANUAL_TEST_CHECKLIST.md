@@ -21,7 +21,10 @@ Run on a real phone after changes to screens, storage or notifications.
 - [ ] "Paid by a party instead" swaps the tiles for a party row; "Use cash or bank instead" brings them back.
 - [ ] Add income; the account balance rises and Reports shows it under Received.
 - [ ] Transfer between two accounts; totals per currency are unchanged.
-- [ ] Exchange USD to the second currency; both account balances change in their own currency and Reports is unaffected.
+- [ ] Exchange from Home or the Exchange tab of the add form: type what you give and the rate; the amount received is worked out. Save: the same account drops in one currency and rises in the other, and Reports is unaffected.
+- [ ] Type both amounts instead; the rate shows what they imply, quoted above one. The round arrow quotes it the other way; the up/down arrow turns the exchange round.
+- [ ] On the next exchange "Use last rate" fills the rate. Choose a different "Received into" account; both account previews are right.
+- [ ] Activity: the Exchanges filter lists exchanges apart from transfers; an exchange shows You gave, You received and the rate; Edit reopens it as an exchange.
 - [ ] Edit an entry (amount, account, date); balances follow.
 - [ ] Delete an entry, then Undo from the toast; balances return.
 

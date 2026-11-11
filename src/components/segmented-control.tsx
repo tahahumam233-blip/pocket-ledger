@@ -21,6 +21,8 @@ export function SegmentedControl<T extends string>({
   size = 'md',
 }: SegmentedControlProps<T>) {
   const theme = useTheme();
+  // Five or more choices share the row with smaller text so labels never touch.
+  const crowded = options.length > 4;
   return (
     <View
       style={[
@@ -49,15 +51,16 @@ export function SegmentedControl<T extends string>({
               {
                 borderRadius: theme.radii.md,
                 backgroundColor: selected ? theme.colors.surface : 'transparent',
-                paddingVertical: size === 'sm' ? 6 : 10,
+                paddingVertical: size === 'sm' ? 6 : crowded ? 12 : 10,
                 shadowColor: theme.colors.shadow,
               },
               selected && !theme.isDark ? styles.selectedShadow : null,
             ]}
           >
             <AppText
-              variant={size === 'sm' ? 'labelStrong' : 'bodyStrong'}
+              variant={crowded ? 'captionStrong' : size === 'sm' ? 'labelStrong' : 'bodyStrong'}
               color={selected ? accent : theme.colors.textMuted}
+              numberOfLines={1}
             >
               {option.label}
             </AppText>

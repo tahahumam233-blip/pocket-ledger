@@ -3,7 +3,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { DEBT_ACTIONS, type DebtAction } from '@/domain';
 import { TransactionForm } from '@/features/transactions/transaction-form';
 
-const KINDS = ['expense', 'income', 'transfer', 'debt'] as const;
+const KINDS = ['expense', 'income', 'transfer', 'exchange', 'debt'] as const;
 
 export default function NewTransactionScreen() {
   const params = useLocalSearchParams<{

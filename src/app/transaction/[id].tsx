@@ -118,7 +118,39 @@ export default function TransactionDetailScreen() {
       </View>
 
       <Card padded={false}>
-        {transaction.kind === 'transfer' && source && destination ? (
+        {view.rate && source && destination ? (
+          <>
+            <ListRow
+              title="You gave"
+              subtitle={`From ${lookup.accounts.get(source.accountId)?.name ?? 'Account'}`}
+              trailing={
+                <MoneyText
+                  amountMinor={Math.abs(source.amountMinor)}
+                  currency={source.currency}
+                  variant="amountSmall"
+                />
+              }
+              chevron={false}
+            />
+            <ListRow
+              title="You received"
+              subtitle={`Into ${lookup.accounts.get(destination.accountId)?.name ?? 'Account'}`}
+              trailing={
+                <MoneyText
+                  amountMinor={destination.amountMinor}
+                  currency={destination.currency}
+                  variant="amountSmall"
+                />
+              }
+              chevron={false}
+            />
+            <ListRow
+              title="Rate"
+              trailing={<AppText variant="bodyMedium">{view.rate}</AppText>}
+              chevron={false}
+            />
+          </>
+        ) : transaction.kind === 'transfer' && source && destination ? (
           <>
             <ListRow
               title="From"

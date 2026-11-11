@@ -2,6 +2,15 @@
 
 ## 1.0.0 (unreleased)
 
+### Added: currency exchange as its own entry
+
+- Exchange is a tab in the add form and a shortcut on Home, instead of a switch hidden inside Transfer.
+- Type what you give and the rate and the amount received is worked out, or type both amounts and see the rate they imply. The rate can be quoted either way round, and one tap turns the exchange round.
+- "Use last rate" offers the rate of your most recent exchange.
+- An exchange can stay within one account (dollars in Pocket for dinars in Pocket) or be received into another.
+- Activity has an Exchanges filter, and an exchange shows what you gave, what you received and the rate.
+- Exchanges still never count as income or expenses.
+
 ### Changed: statement export as PDF or Excel
 
 - One "Export statement" button on a party opens a choice of PDF or Excel (sending the statement as text is still there underneath).

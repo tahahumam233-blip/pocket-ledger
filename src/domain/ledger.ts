@@ -454,7 +454,11 @@ export function validateDraft(draft: TransactionDraft, context: DraftContext): D
           });
         }
       }
-      if (draft.fromAccountId && draft.fromAccountId === draft.toAccountId) {
+      const toCurrency = draft.toCurrency ?? draft.currency;
+      const isExchange = toCurrency !== draft.currency;
+      // An exchange may stay in one account (dollars in Pocket for dinars in Pocket);
+      // a plain transfer to the same account would do nothing.
+      if (!isExchange && draft.fromAccountId && draft.fromAccountId === draft.toAccountId) {
         errors.push({
           field: 'toAccountId',
           code: 'same_account',
@@ -463,8 +467,6 @@ export function validateDraft(draft: TransactionDraft, context: DraftContext): D
       }
       checkCurrency(context, draft.currency, 'currency', errors);
       checkPositiveAmount(draft.amountMinor, 'amountMinor', errors);
-      const toCurrency = draft.toCurrency ?? draft.currency;
-      const isExchange = toCurrency !== draft.currency;
       let toAmount = draft.amountMinor;
       if (isExchange) {
         checkCurrency(context, toCurrency, 'toCurrency', errors);

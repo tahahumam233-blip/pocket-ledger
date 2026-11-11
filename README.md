@@ -8,7 +8,8 @@ A private, offline spending tracker for iPhone, built with Expo and React Native
 - **Split a bill.** Pay for a colleague's order with yours; their share becomes a receivable they repay later in cash or by bank, and only your part counts as spending.
 - **Receivables and payables.** Post loans given and received and their repayments, and export a statement of account for each party as a PDF or an Excel workbook, styled like the app.
 - **A nightly reminder** at the time you choose, as a daily Calendar alert (or a notification in the optional native build).
-- **Reports** by category and by month, transfers and exchanges between currencies, balance adjustments, CSV export, backup and restore with photos, dark mode, and an optional Face ID lock in the native build.
+- **Exchange currency** within an account or between two: type the amount and the rate (or both amounts), with the last rate one tap away.
+- **Reports** by category and by month, transfers between accounts, balance adjustments, CSV export, backup and restore with photos, dark mode, and an optional Face ID lock in the native build.
 - **Hide amounts with one tap.** The eye button on Home, Activity and Reports replaces every amount with dots when you show the app to someone.
 - **No account, no cloud, no ads.** Everything stays on the phone.
 
@@ -24,17 +25,17 @@ Every step, including the one-time publishing setup and backups, is in [docs/GET
 
 ## What the app does
 
-| Area       | Behaviour                                                                                                                                                                                                                                    |
-| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Onboarding | Choose two currencies (the phone's local currency is pre-selected), turn on Safe / Pocket / Bank, enter opening balances, set the reminder time.                                                                                             |
-| Home       | Cash & bank per currency, expenses today and month to date, account cards, quick actions, pending-receipt banner, recent entries.                                                                                                            |
-| Add        | Expense, income, transfer or loan with a large keypad, currency toggle, account tiles with balances and a before/after preview, category picker, date chips, note and receipt photos. Transfers can be exchanges between the two currencies. |
-| Activity   | Month-by-month list grouped by day with search, type and currency filters, and per-month totals.                                                                                                                                             |
-| Receipts   | Camera or photo library capture into an inbox; "Add the amount" turns a receipt into an expense and links the photo.                                                                                                                         |
-| Reports    | Expenses, income and net income per currency, expenses by category with a ring chart, and a six-month trend.                                                                                                                                 |
-| Accounts   | Balances per currency, history, and "Reconcile" to post an adjustment to the counted balance.                                                                                                                                                |
-| Parties    | Receivables & payables: each debtor or creditor with a receivable or payable balance, a due date and a statement of account you can export as PDF or Excel.                                                                                  |
-| Settings   | Currencies, reminder time, appearance, app lock, accounts, categories, CSV export, privacy notes, erase all data.                                                                                                                            |
+| Area       | Behaviour                                                                                                                                                                                                                                                                               |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Onboarding | Choose two currencies (the phone's local currency is pre-selected), turn on Safe / Pocket / Bank, enter opening balances, set the reminder time.                                                                                                                                        |
+| Home       | Cash & bank per currency, expenses today and month to date, account cards, quick actions, pending-receipt banner, recent entries.                                                                                                                                                       |
+| Add        | Expense, income, transfer, exchange or loan with a large keypad, account tiles with balances and a before/after preview, category picker, date chips, note and receipt photos. An exchange takes what you give, what you receive and the rate, and works out whichever you leave blank. |
+| Activity   | Month-by-month list grouped by day with search, type and currency filters, and per-month totals.                                                                                                                                                                                        |
+| Receipts   | Camera or photo library capture into an inbox; "Add the amount" turns a receipt into an expense and links the photo.                                                                                                                                                                    |
+| Reports    | Expenses, income and net income per currency, expenses by category with a ring chart, and a six-month trend.                                                                                                                                                                            |
+| Accounts   | Balances per currency, history, and "Reconcile" to post an adjustment to the counted balance.                                                                                                                                                                                           |
+| Parties    | Receivables & payables: each debtor or creditor with a receivable or payable balance, a due date and a statement of account you can export as PDF or Excel.                                                                                                                             |
+| Settings   | Currencies, reminder time, appearance, app lock, accounts, categories, CSV export, privacy notes, erase all data.                                                                                                                                                                       |
 
 ## Development
 

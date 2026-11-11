@@ -6,6 +6,7 @@ import {
   currentYearMonth,
   type DebtTotals,
   type CurrencyCode,
+  type ExchangeQuote,
   expenseTotalsByCurrency,
   type IsoDate,
   type MinorUnits,
@@ -13,6 +14,7 @@ import {
   type MonthlyTotal,
   monthRange,
   type PeriodSummary,
+  quoteFromAmounts,
   type ReportLine,
   shiftYearMonth,
   type Statement,
@@ -51,6 +53,8 @@ export type HomeSnapshot = {
   recentTransactions: TransactionWithLines[];
   /** The account last used for each kind of entry, used as the form's default. */
   lastAccountIds: Partial<Record<EntryKind, string>>;
+  /** The rate of the most recent exchange between the two current currencies, if any. */
+  lastExchangeRate: ExchangeQuote | null;
   pendingReceipts: number;
   today: IsoDate;
   /** True once the ledger is a week old and the last backup is more than 30 days old. */
@@ -122,6 +126,7 @@ export function createQueries(repos: Repositories, clock?: Clock) {
         recent,
         pendingReceipts,
         lastAccountIds,
+        lastExchange,
       ] = await Promise.all([
         repos.settings.getAll(),
         repos.accounts.list({ includeArchived: true }),
@@ -131,6 +136,7 @@ export function createQueries(repos: Repositories, clock?: Clock) {
         repos.transactions.list({ limit: 8 }),
         repos.receipts.countPending(),
         repos.transactions.lastAccountByEntryKind(),
+        repos.transactions.lastExchange(),
       ]);
       const settings = parseSettings(settingsRecord);
       const accounts = allAccounts.filter(
@@ -156,6 +162,17 @@ export function createQueries(repos: Repositories, clock?: Clock) {
         spentThisMonth: toRecord(expenseTotalsByCurrency(monthLines)),
         recentTransactions: recent,
         lastAccountIds,
+        lastExchangeRate:
+          lastExchange &&
+          settings.currencies.includes(lastExchange.fromCurrency) &&
+          settings.currencies.includes(lastExchange.toCurrency)
+            ? quoteFromAmounts(
+                lastExchange.fromMinor,
+                lastExchange.fromCurrency,
+                lastExchange.toMinor,
+                lastExchange.toCurrency,
+              )
+            : null,
         pendingReceipts,
         today,
         backupDue: isBackupDue(accounts, settings.lastBackupAt, now()),

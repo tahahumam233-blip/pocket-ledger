@@ -3,6 +3,7 @@ export * from './currency';
 export * from './dates';
 export * from './debts';
 export * from './defaults';
+export * from './exchange';
 export * from './ids';
 export * from './ledger';
 export * from './money';

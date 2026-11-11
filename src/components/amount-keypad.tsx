@@ -10,7 +10,8 @@ import { PressableScale } from './pressable-scale';
 type AmountKeypadProps = {
   value: string;
   onChange: (next: string) => void;
-  fractionDigits: 0 | 2 | 3;
+  /** Decimal places allowed: a currency's own, or more for an exchange rate. */
+  fractionDigits: number;
   maxIntegerDigits?: number;
 };
 

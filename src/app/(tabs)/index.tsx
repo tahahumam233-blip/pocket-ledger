@@ -91,6 +91,12 @@ export default function HomeScreen() {
       onPress: () => router.push({ pathname: '/transaction/new', params: { kind: 'debt' } }),
     },
     {
+      label: 'Exchange',
+      icon: 'swap-horizontal',
+      color: theme.colors.transfer,
+      onPress: () => router.push({ pathname: '/transaction/new', params: { kind: 'exchange' } }),
+    },
+    {
       label: 'Receipt',
       icon: 'camera',
       color: theme.colors.warning,
@@ -189,8 +195,10 @@ export default function HomeScreen() {
             accessibilityLabel={action.label}
             style={styles.quickAction}
           >
-            <IconBadge icon={action.icon} color={action.color} size={52} />
-            <AppText variant="label">{action.label}</AppText>
+            <IconBadge icon={action.icon} color={action.color} size={50} />
+            <AppText variant="label" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+              {action.label}
+            </AppText>
           </PressableScale>
         ))}
       </View>
@@ -402,9 +410,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   quickAction: {
+    flex: 1,
     alignItems: 'center',
     gap: 8,
-    width: 72,
   },
   bannerRow: {
     flexDirection: 'row',

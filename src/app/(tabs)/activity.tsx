@@ -28,18 +28,26 @@ import { useAmountsHidden, useLedgerStore } from '@/state/ledger-store';
 import { useQuery } from '@/state/use-query';
 import { buildLookup, groupByDay } from '@/utils/transaction-presenter';
 
-type KindFilter = 'all' | 'expense' | 'income' | 'transfer' | 'debt';
+type KindFilter = 'all' | 'expense' | 'income' | 'transfer' | 'exchange' | 'debt';
 
 const KIND_OPTIONS: {
   value: KindFilter;
   label: string;
   kinds?: TransactionKind[];
   debts?: 'only' | 'exclude';
+  exchanges?: 'only' | 'exclude';
 }[] = [
   { value: 'all', label: 'All' },
   { value: 'expense', label: 'Expenses', kinds: ['expense'] },
   { value: 'income', label: 'Income', kinds: ['income'] },
-  { value: 'transfer', label: 'Transfers', kinds: ['transfer'], debts: 'exclude' },
+  {
+    value: 'transfer',
+    label: 'Transfers',
+    kinds: ['transfer'],
+    debts: 'exclude',
+    exchanges: 'exclude',
+  },
+  { value: 'exchange', label: 'Exchanges', kinds: ['transfer'], exchanges: 'only' },
   { value: 'debt', label: 'Loans', kinds: ['transfer'], debts: 'only' },
 ];
 
@@ -90,6 +98,7 @@ export default function ActivityScreen() {
         dateTo: range.end,
         kinds,
         debts: kindOption?.debts,
+        exchanges: kindOption?.exchanges,
         currency: currency ?? undefined,
         categoryId: categoryId ?? undefined,
         accountId: accountId ?? undefined,

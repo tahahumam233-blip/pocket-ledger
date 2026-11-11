@@ -6,7 +6,7 @@ These are invariants, not preferences. Tests in `src/domain/*.test.ts` and `src/
 2. Currency metadata (fraction digits, symbol, position) is centralized in `src/domain/currency.ts`. Amounts in different currencies are never added together.
 3. Balances are derived only from active ledger lines. Opening balances are `opening` transactions. Nothing stores or mutates a balance.
 4. Income is positive, expenses are negative. Transfers out are negative on the source and positive on the destination; same-currency transfers sum to zero and are written, edited, soft-deleted and restored atomically with their transaction.
-5. Exchanges are transfers with two currencies; both amounts are entered by the user and both lines are required.
+5. Exchanges are transfers with two currencies; both lines are required, and both amounts are the user's own: either typed, or worked out on screen from a rate the user typed and shown before saving. The app never looks a rate up. An exchange may stay within one account (dollars in Pocket for dinars in Pocket) or move between two. The rate is not stored; it is the ratio of the two amounts, quoted on the currency that makes it read above one (1 USD = 1,310 IQD). Converting at a rate uses exact integer arithmetic, rounded half up to the smallest unit of the currency received.
 6. Reconciliation appends an `adjustment` equal to actual minus ledger balance. It never edits history, and a zero difference writes nothing.
 7. Soft-deleted transactions affect neither balances nor reports. Restoring re-validates the entry against current accounts, categories and currencies.
 8. Income and expense reports exclude transfers, exchanges, opening balances and adjustments.
