@@ -2,6 +2,14 @@
 
 ## 1.0.0 (unreleased)
 
+### Changed: export the whole ledger with every detail
+
+- Settings has one "Export ledger" button offering an Excel workbook or a CSV, replacing "Export as CSV".
+- The workbook has a sheet per view: Summary (balances and how to read the file), Entries (one row per entry with account, party, category, amounts, what counts as income or expense, exchange rate, note and receipts), Journal (every entry as balanced debit and credit lines), Trial balance, Accounts, Parties, Categories and Monthly.
+- Figures are real numbers in each currency's own precision and dates are real dates; heading rows stay in view and can be filtered.
+- The CSV is the full journal as one table.
+- Deleted entries and receipt photos are not included.
+
 ### Added: currency exchange as its own entry
 
 - Exchange is a tab in the add form and a shortcut on Home, instead of a switch hidden inside Transfer.

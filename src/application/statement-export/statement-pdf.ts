@@ -5,7 +5,7 @@ import {
   measureHelvetica,
   type MeasureText,
   type PdfFont,
-} from './helvetica';
+} from '../file-formats/helvetica';
 import {
   buildPdf,
   hexToRgb,
@@ -15,8 +15,8 @@ import {
   type PdfOp,
   type PdfPage,
   type Rgb,
-} from './pdf';
-import type { StatementTheme } from './theme';
+} from '../file-formats/pdf';
+import type { DocumentTheme } from '../file-formats/theme';
 
 /** A4 in points. */
 const PAGE_WIDTH = 595.28;
@@ -124,7 +124,7 @@ type TableRow = {
  */
 export function layoutStatementPdf(
   document: StatementDocument,
-  theme: StatementTheme,
+  theme: DocumentTheme,
   measure: MeasureText = measureHelvetica,
 ): PdfLayout {
   const { truncate, wrap, fitSize } = textTools(measure);
@@ -496,6 +496,6 @@ export function statementPdfInfo(document: StatementDocument): PdfInfo {
 }
 
 /** The statement as a PDF with real, selectable text. */
-export function buildStatementPdf(document: StatementDocument, theme: StatementTheme): Uint8Array {
+export function buildStatementPdf(document: StatementDocument, theme: DocumentTheme): Uint8Array {
   return buildPdf(layoutStatementPdf(document, theme), statementPdfInfo(document));
 }

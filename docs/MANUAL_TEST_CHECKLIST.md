@@ -48,7 +48,10 @@ Run on a real phone after changes to screens, storage or notifications.
 - [ ] Replacing a currency with history is blocked; swapping primary and secondary works.
 - [ ] Dark mode follows the system and the manual setting.
 - [ ] App lock: enable, background the app, return; the lock screen appears and biometrics unlock it.
-- [ ] Export CSV; open it in a spreadsheet and check amounts and currencies.
+- [ ] Settings, Export ledger, Excel workbook: the file has the sheets Summary, Entries, Journal, Trial balance, Accounts, Parties, Categories and Monthly. Summary balances match Home; in Journal and Trial balance total debits equal total credits in each currency; heading rows stay in view and can be filtered.
+- [ ] Entries: a split shows the full payment, the cash change, the receivable change and only your share under Counts as expense; an exchange shows what was given, what was received and the rate; deleted entries are absent.
+- [ ] Export ledger, CSV: one table with a row per journal line; opens in a spreadsheet with correct amounts and currencies.
+- [ ] Hand the exported workbook to an assistant and ask for a breakdown; its totals match Reports.
 - [ ] Erase all data returns to onboarding.
 
 ## iPhone web app

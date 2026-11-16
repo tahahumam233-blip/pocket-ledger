@@ -7,18 +7,19 @@ import { AppText } from '@/components/app-text';
 import { Card } from '@/components/card';
 import { IconBadge } from '@/components/icon-badge';
 import { ListRow } from '@/components/list-row';
+import { ExportSheet } from '@/components/export-sheet';
 import { Screen } from '@/components/screen';
 import { SegmentedControl } from '@/components/segmented-control';
-import type { ThemePreference } from '@/application/settings';
+import type { AppSettings, ThemePreference } from '@/application/settings';
 import { useTheme } from '@/design';
 import { formatClockTime, formatDateLabel, toIsoDate } from '@/domain';
 import { useBackup } from '@/features/backup/use-backup';
+import { useLedgerExport } from '@/features/export/use-ledger-export';
 import { authenticate, canUseAppLock } from '@/platform/app-lock';
 import { USES_CALENDAR_REMINDER } from '@/platform/calendar-reminder';
 import { askConfirm } from '@/platform/confirm';
 import { haptics } from '@/platform/haptics';
-import { shareFile } from '@/platform/share-file';
-import { useLedgerStore, useServices } from '@/state/ledger-store';
+import { useLedgerStore } from '@/state/ledger-store';
 import { showToast } from '@/state/toast-store';
 
 const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
@@ -30,19 +31,19 @@ const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
 export default function SettingsScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const services = useServices();
   const settings = useLedgerStore((state) => state.settings);
   const snapshot = useLedgerStore((state) => state.snapshot);
   const mutate = useLedgerStore((state) => state.mutate);
   const [lockAvailable, setLockAvailable] = useState(false);
-  const [exporting, setExporting] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const ledgerExport = useLedgerExport(() => setExportOpen(false));
   const backup = useBackup();
 
   useEffect(() => {
     void canUseAppLock().then(setLockAvailable);
   }, []);
 
-  const update = (changes: Parameters<typeof services.setup.updateSettings>[0]) =>
+  const update = (changes: Partial<AppSettings>) =>
     mutate((s) => s.setup.updateSettings(changes)).catch((caught) => {
       showToast(caught instanceof Error ? caught.message : 'Could not save.', { tone: 'danger' });
     });
@@ -56,23 +57,6 @@ export default function SettingsScreen() {
       }
     }
     await update({ appLockEnabled: next });
-  };
-
-  const exportCsv = async () => {
-    setExporting(true);
-    try {
-      const csv = await services.exporter.transactionsCsv();
-      const shared = await shareFile(csv.fileName, csv.content, 'text/csv', 'Export');
-      if (shared) {
-        showToast(`Exported ${csv.rows} ${csv.rows === 1 ? 'line' : 'lines'}.`, {
-          tone: 'success',
-        });
-      }
-    } catch (caught) {
-      showToast(caught instanceof Error ? caught.message : 'Export failed.', { tone: 'danger' });
-    } finally {
-      setExporting(false);
-    }
   };
 
   const erase = () => {
@@ -241,10 +225,11 @@ export default function SettingsScreen() {
             testID="restore-backup"
           />
           <ListRow
-            title={exporting ? 'Preparing export…' : 'Export as CSV'}
-            subtitle="Every entry, ready for a spreadsheet"
+            title="Export ledger"
+            subtitle="Every detail in one file, as Excel or CSV"
             leading={<IconBadge icon="download" color={theme.colors.income} size={36} outline />}
-            onPress={() => void exportCsv()}
+            onPress={() => setExportOpen(true)}
+            testID="export-ledger"
           />
           <ListRow
             title="Privacy & how data is stored"
@@ -268,6 +253,31 @@ export default function SettingsScreen() {
       <AppText variant="caption" tone="subtle" align="center">
         Pocket Ledger {version} · offline, private, no account needed
       </AppText>
+      <ExportSheet
+        visible={exportOpen}
+        onClose={() => setExportOpen(false)}
+        title="Export ledger"
+        summary="Your whole ledger in one file. Receipt photos are not included; Back up now keeps those."
+        busy={ledgerExport.busy}
+        onChoose={(format) => void ledgerExport.exportAs(format)}
+        options={[
+          {
+            id: 'xlsx',
+            icon: 'grid',
+            color: theme.colors.income,
+            title: 'Excel workbook',
+            description:
+              'Every entry, the journal, trial balance, balances and monthly totals, each on its own sheet.',
+          },
+          {
+            id: 'csv',
+            icon: 'list',
+            color: theme.colors.primary,
+            title: 'CSV',
+            description: 'The full journal as one table, for any spreadsheet or tool.',
+          },
+        ]}
+      />
     </Screen>
   );
 }

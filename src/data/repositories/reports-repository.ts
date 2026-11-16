@@ -1,10 +1,4 @@
-import type {
-  CsvTransactionRow,
-  DebtAction,
-  ReportLine,
-  StatementSourceLine,
-  TransactionKind,
-} from '@/domain';
+import type { DebtAction, ReportLine, StatementSourceLine, TransactionKind } from '@/domain';
 
 import type { SqlExecutor } from '../sql';
 
@@ -54,44 +48,6 @@ export function createReportsRepository(db: SqlExecutor) {
         currency: row.currency,
         amountMinor: row.amount_minor,
         postedDate: row.posted_date,
-      }));
-    },
-
-    async csvRows(): Promise<CsvTransactionRow[]> {
-      const rows = await db.all<{
-        transaction_id: string;
-        posted_date: string;
-        kind: string;
-        account: string;
-        category: string | null;
-        currency: string;
-        amount_minor: number;
-        note: string;
-        receipts: number;
-        created_at: string;
-      }>(
-        `SELECT t.id AS transaction_id, t.posted_date, COALESCE(t.debt_action, t.kind) AS kind,
-                a.name AS account, c.name AS category,
-                l.currency, l.amount_minor, t.note, t.created_at,
-                (SELECT COUNT(*) FROM receipts r WHERE r.transaction_id = t.id AND r.deleted_at IS NULL) AS receipts
-         FROM ledger_lines l
-         JOIN transactions t ON t.id = l.transaction_id
-         JOIN accounts a ON a.id = l.account_id
-         LEFT JOIN categories c ON c.id = t.category_id
-         WHERE t.deleted_at IS NULL
-         ORDER BY t.posted_date DESC, t.created_at DESC, l.rowid ASC`,
-      );
-      return rows.map((row) => ({
-        transactionId: row.transaction_id,
-        postedDate: row.posted_date,
-        kind: row.kind,
-        account: row.account,
-        category: row.category ?? '',
-        currency: row.currency,
-        amountMinor: row.amount_minor,
-        note: row.note,
-        hasReceipt: row.receipts > 0,
-        createdAt: row.created_at,
       }));
     },
 

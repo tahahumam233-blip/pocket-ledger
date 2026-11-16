@@ -5,8 +5,8 @@ import {
   balanceText,
   type StatementDocument,
 } from './document';
-import type { StatementTheme } from './theme';
-import { buildXlsx, type XlsxCell, type XlsxRow, type XlsxStyle } from './xlsx';
+import type { DocumentTheme } from '../file-formats/theme';
+import { buildXlsx, type XlsxCell, type XlsxRow, type XlsxStyle } from '../file-formats/xlsx';
 
 /** Columns: Date, Description, Note, Debit, Credit, Balance, Dr/Cr. */
 const COLUMN_WIDTHS = [16, 40, 30, 15, 15, 15, 7];
@@ -20,7 +20,7 @@ function numberFormat(fractionDigits: number): string {
  * The statement as an Excel workbook: a short heading, then one row per entry
  * with real dates and numbers so the figures can be sorted, summed and edited.
  */
-export function buildStatementXlsx(document: StatementDocument, theme: StatementTheme): Uint8Array {
+export function buildStatementXlsx(document: StatementDocument, theme: DocumentTheme): Uint8Array {
   const money = numberFormat(document.fractionDigits);
   const tone =
     document.standing === 'receivable'
@@ -180,13 +180,15 @@ export function buildStatementXlsx(document: StatementDocument, theme: Statement
   });
 
   return buildXlsx(
-    {
-      name: 'Statement',
-      columnWidths: COLUMN_WIDTHS,
-      rows,
-      freezeRows: headerRow,
-      printTitleRow: headerRow,
-    },
+    [
+      {
+        name: 'Statement',
+        columnWidths: COLUMN_WIDTHS,
+        rows,
+        freezeRows: headerRow,
+        printTitleRow: headerRow,
+      },
+    ],
     { created: new Date(`${document.preparedOn}T00:00:00Z`) },
   );
 }

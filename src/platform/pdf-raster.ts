@@ -1,4 +1,4 @@
-import type { MeasureText, PdfLayout, PdfPageImage } from '@/application/statement-export';
+import type { MeasureText, PdfLayout, PdfPageImage } from '@/application/file-formats';
 
 /** Draws laid-out pages as pictures, for text the PDF's built-in font cannot show. */
 export type PdfRasterizer = {

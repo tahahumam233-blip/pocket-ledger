@@ -10,6 +10,8 @@ export type XlsxStyle = {
   /** Solid fill as #RRGGBB. */
   fill?: string;
   align?: 'left' | 'center' | 'right';
+  /** Space before left-aligned text, in character widths. */
+  indent?: number;
   wrap?: boolean;
   /** Excel number format such as "#,##0.00" or "dd mmm yyyy". */
   format?: string;
@@ -38,7 +40,14 @@ export type XlsxSheet = {
   freezeRows?: number;
   /** The row repeated at the top of every printed page (1-based). */
   printTitleRow?: number;
+  /** A heading row (1-based) that gets filter and sort buttons over the rows below it. */
+  filterRow?: number;
+  /** Print sideways, for wide tables. */
+  landscape?: boolean;
 };
+
+/** The media type of an .xlsx workbook, for sharing and saving. */
+export const XLSX_MIME_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
 const XML_HEADER = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
 const MAIN_NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
@@ -130,6 +139,7 @@ class StyleBook {
       : 0;
     const alignment =
       `<alignment${style.align ? ` horizontal="${style.align}"` : ''} vertical="center"` +
+      `${style.indent ? ` indent="${style.indent}"` : ''}` +
       `${style.wrap ? ' wrapText="1"' : ''}/>`;
     return this.xfs.add(
       `<xf numFmtId="${numFmtId}" fontId="${fontId}" fillId="${fillId}" borderId="${borderId}" xfId="0"` +
@@ -172,86 +182,122 @@ function borderXml(style: XlsxStyle): string {
   return `<border><left/><right/>${edge('top', style.borderTop)}${edge('bottom', style.borderBottom)}<diagonal/></border>`;
 }
 
+/** Excel limits sheet names to 31 characters and forbids a few of them. */
+function sheetNameOf(name: string): string {
+  const cleaned = Array.from(name)
+    .map((char) => ('[]:*?/\\'.includes(char) ? ' ' : char))
+    .join('')
+    .trim()
+    .slice(0, 31);
+  return cleaned || 'Sheet';
+}
+
 /**
- * Writes a single-sheet Excel workbook (.xlsx): styled cells, real numbers and
- * dates, optional formulas with their values, frozen rows and print settings.
+ * Writes an Excel workbook (.xlsx) with one or more sheets: styled cells, real
+ * numbers and dates, optional formulas with their values, frozen heading rows,
+ * filters and print settings.
  */
-export function buildXlsx(sheet: XlsxSheet, options: { created: Date }): Uint8Array {
+export function buildXlsx(sheets: readonly XlsxSheet[], options: { created: Date }): Uint8Array {
+  if (sheets.length === 0) throw new Error('A workbook needs at least one sheet.');
   const styles = new StyleBook();
   const strings = new Registry();
   let stringCount = 0;
+  const definedNames: string[] = [];
 
-  const rowsXml = sheet.rows
-    .map((row, rowIndex) => {
-      const cells = row.cells
-        .map((cell, columnIndex) => {
-          if (!cell) return '';
-          const ref = `${columnLetters(columnIndex)}${rowIndex + 1}`;
-          const style = styles.styleIndex(cell.style);
-          const attributes = `r="${ref}"${style ? ` s="${style}"` : ''}`;
-          switch (cell.type) {
-            case 'text': {
-              stringCount += 1;
-              const index = strings.add(
-                `<si><t xml:space="preserve">${escapeXml(cell.value)}</t></si>`,
-              );
-              return `<c ${attributes} t="s"><v>${index}</v></c>`;
-            }
-            case 'number': {
-              if (!/^-?\d+(\.\d+)?$/.test(cell.value)) {
-                throw new Error(`Invalid number ${cell.value}`);
+  const sheetXmls = sheets.map((sheet, sheetIndex) => {
+    const rowsXml = sheet.rows
+      .map((row, rowIndex) => {
+        const cells = row.cells
+          .map((cell, columnIndex) => {
+            if (!cell) return '';
+            const ref = `${columnLetters(columnIndex)}${rowIndex + 1}`;
+            const style = styles.styleIndex(cell.style);
+            const attributes = `r="${ref}"${style ? ` s="${style}"` : ''}`;
+            switch (cell.type) {
+              case 'text': {
+                stringCount += 1;
+                const index = strings.add(
+                  `<si><t xml:space="preserve">${escapeXml(cell.value)}</t></si>`,
+                );
+                return `<c ${attributes} t="s"><v>${index}</v></c>`;
               }
-              const formula = cell.formula ? `<f>${escapeXml(cell.formula)}</f>` : '';
-              return `<c ${attributes}>${formula}<v>${cell.value}</v></c>`;
+              case 'number': {
+                if (!/^-?\d+(\.\d+)?$/.test(cell.value)) {
+                  throw new Error(`Invalid number ${cell.value}`);
+                }
+                const formula = cell.formula ? `<f>${escapeXml(cell.formula)}</f>` : '';
+                return `<c ${attributes}>${formula}<v>${cell.value}</v></c>`;
+              }
+              case 'date':
+                return `<c ${attributes}><v>${excelDateSerial(cell.value)}</v></c>`;
+              case 'blank':
+                return `<c ${attributes}/>`;
             }
-            case 'date':
-              return `<c ${attributes}><v>${excelDateSerial(cell.value)}</v></c>`;
-            case 'blank':
-              return `<c ${attributes}/>`;
-          }
-        })
-        .join('');
-      const height = row.height ? ` ht="${row.height}" customHeight="1"` : '';
-      return `<row r="${rowIndex + 1}"${height}>${cells}</row>`;
-    })
-    .join('');
+          })
+          .join('');
+        const height = row.height ? ` ht="${row.height}" customHeight="1"` : '';
+        return `<row r="${rowIndex + 1}"${height}>${cells}</row>`;
+      })
+      .join('');
 
-  const columnCount = Math.max(sheet.columnWidths.length, 1);
-  const lastCell = `${columnLetters(columnCount - 1)}${Math.max(sheet.rows.length, 1)}`;
-  const frozen = sheet.freezeRows ?? 0;
-  const pane = frozen
-    ? `<pane ySplit="${frozen}" topLeftCell="A${frozen + 1}" activePane="bottomLeft" state="frozen"/>` +
-      `<selection pane="bottomLeft" activeCell="A${frozen + 1}" sqref="A${frozen + 1}"/>`
-    : '';
-  const cols = sheet.columnWidths
-    .map(
-      (width, index) =>
-        `<col min="${index + 1}" max="${index + 1}" width="${width}" customWidth="1"/>`,
-    )
-    .join('');
+    const lastColumn = columnLetters(Math.max(sheet.columnWidths.length, 1) - 1);
+    const lastRow = Math.max(sheet.rows.length, 1);
+    const frozen = sheet.freezeRows ?? 0;
+    const pane = frozen
+      ? `<pane ySplit="${frozen}" topLeftCell="A${frozen + 1}" activePane="bottomLeft" state="frozen"/>` +
+        `<selection pane="bottomLeft" activeCell="A${frozen + 1}" sqref="A${frozen + 1}"/>`
+      : '';
+    const cols = sheet.columnWidths
+      .map(
+        (width, index) =>
+          `<col min="${index + 1}" max="${index + 1}" width="${width}" customWidth="1"/>`,
+      )
+      .join('');
 
-  const sheetXml =
-    `${XML_HEADER}<worksheet xmlns="${MAIN_NS}" xmlns:r="${REL_NS}">` +
-    '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>' +
-    `<dimension ref="A1:${lastCell}"/>` +
-    `<sheetViews><sheetView showGridLines="0" workbookViewId="0">${pane}</sheetView></sheetViews>` +
-    '<sheetFormatPr defaultRowHeight="15"/>' +
-    `<cols>${cols}</cols>` +
-    `<sheetData>${rowsXml}</sheetData>` +
-    '<pageMargins left="0.5" right="0.5" top="0.6" bottom="0.7" header="0.3" footer="0.3"/>' +
-    '<pageSetup paperSize="9" orientation="portrait" fitToWidth="1" fitToHeight="0"/>' +
-    '<headerFooter><oddFooter>&amp;CPage &amp;P of &amp;N</oddFooter></headerFooter>' +
-    '</worksheet>';
+    const quotedName = `'${escapeXml(sheetNameOf(sheet.name)).replace(/'/g, "''")}'`;
+    const filter =
+      sheet.filterRow && lastRow > sheet.filterRow
+        ? `A${sheet.filterRow}:${lastColumn}${lastRow}`
+        : null;
+    if (filter && sheet.filterRow) {
+      definedNames.push(
+        `<definedName name="_xlnm._FilterDatabase" localSheetId="${sheetIndex}" hidden="1">` +
+          `${quotedName}!$A$${sheet.filterRow}:$${lastColumn}$${lastRow}</definedName>`,
+      );
+    }
+    if (sheet.printTitleRow) {
+      definedNames.push(
+        `<definedName name="_xlnm.Print_Titles" localSheetId="${sheetIndex}">` +
+          `${quotedName}!$${sheet.printTitleRow}:$${sheet.printTitleRow}</definedName>`,
+      );
+    }
 
-  const sheetName = escapeXml(sheet.name);
-  const printTitles = sheet.printTitleRow
-    ? `<definedNames><definedName name="_xlnm.Print_Titles" localSheetId="0">'${sheetName}'!$${sheet.printTitleRow}:$${sheet.printTitleRow}</definedName></definedNames>`
-    : '';
+    return (
+      `${XML_HEADER}<worksheet xmlns="${MAIN_NS}" xmlns:r="${REL_NS}">` +
+      '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>' +
+      `<dimension ref="A1:${lastColumn}${lastRow}"/>` +
+      `<sheetViews><sheetView showGridLines="0"${sheetIndex === 0 ? ' tabSelected="1"' : ''} workbookViewId="0">${pane}</sheetView></sheetViews>` +
+      '<sheetFormatPr defaultRowHeight="15"/>' +
+      `<cols>${cols}</cols>` +
+      `<sheetData>${rowsXml}</sheetData>` +
+      (filter ? `<autoFilter ref="${filter}"/>` : '') +
+      '<pageMargins left="0.5" right="0.5" top="0.6" bottom="0.7" header="0.3" footer="0.3"/>' +
+      `<pageSetup paperSize="9" orientation="${sheet.landscape ? 'landscape' : 'portrait'}" fitToWidth="1" fitToHeight="0"/>` +
+      '<headerFooter><oddFooter>&amp;CPage &amp;P of &amp;N</oddFooter></headerFooter>' +
+      '</worksheet>'
+    );
+  });
+
   const workbookXml =
     `${XML_HEADER}<workbook xmlns="${MAIN_NS}" xmlns:r="${REL_NS}">` +
     '<bookViews><workbookView/></bookViews>' +
-    `<sheets><sheet name="${sheetName}" sheetId="1" r:id="rId1"/></sheets>` +
-    printTitles +
+    `<sheets>${sheets
+      .map(
+        (sheet, index) =>
+          `<sheet name="${escapeXml(sheetNameOf(sheet.name))}" sheetId="${index + 1}" r:id="rId${index + 1}"/>`,
+      )
+      .join('')}</sheets>` +
+    (definedNames.length ? `<definedNames>${definedNames.join('')}</definedNames>` : '') +
     '<calcPr calcId="191029" fullCalcOnLoad="1"/>' +
     '</workbook>';
 
@@ -264,7 +310,12 @@ export function buildXlsx(sheet: XlsxSheet, options: { created: Date }): Uint8Ar
     '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
     '<Default Extension="xml" ContentType="application/xml"/>' +
     '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
-    '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>' +
+    sheets
+      .map(
+        (_, index) =>
+          `<Override PartName="/xl/worksheets/sheet${index + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`,
+      )
+      .join('') +
     '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
     '<Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>' +
     '</Types>';
@@ -276,9 +327,14 @@ export function buildXlsx(sheet: XlsxSheet, options: { created: Date }): Uint8Ar
 
   const workbookRelsXml =
     `${XML_HEADER}<Relationships xmlns="${PACKAGE_REL_NS}">` +
-    `<Relationship Id="rId1" Type="${REL_NS}/worksheet" Target="worksheets/sheet1.xml"/>` +
-    `<Relationship Id="rId2" Type="${REL_NS}/styles" Target="styles.xml"/>` +
-    `<Relationship Id="rId3" Type="${REL_NS}/sharedStrings" Target="sharedStrings.xml"/>` +
+    sheets
+      .map(
+        (_, index) =>
+          `<Relationship Id="rId${index + 1}" Type="${REL_NS}/worksheet" Target="worksheets/sheet${index + 1}.xml"/>`,
+      )
+      .join('') +
+    `<Relationship Id="rId${sheets.length + 1}" Type="${REL_NS}/styles" Target="styles.xml"/>` +
+    `<Relationship Id="rId${sheets.length + 2}" Type="${REL_NS}/sharedStrings" Target="sharedStrings.xml"/>` +
     '</Relationships>';
 
   return zipStore(
@@ -289,7 +345,10 @@ export function buildXlsx(sheet: XlsxSheet, options: { created: Date }): Uint8Ar
       { name: 'xl/_rels/workbook.xml.rels', data: utf8(workbookRelsXml) },
       { name: 'xl/styles.xml', data: utf8(styles.toXml()) },
       { name: 'xl/sharedStrings.xml', data: utf8(sharedStringsXml) },
-      { name: 'xl/worksheets/sheet1.xml', data: utf8(sheetXml) },
+      ...sheetXmls.map((xml, index) => ({
+        name: `xl/worksheets/sheet${index + 1}.xml`,
+        data: utf8(xml),
+      })),
     ],
     options.created,
   );

@@ -6,7 +6,7 @@ import {
   type PdfOp,
   type PdfPageImage,
   type Rgb,
-} from '@/application/statement-export';
+} from '@/application/file-formats';
 
 import type { PdfRasterizer } from './pdf-raster';
 

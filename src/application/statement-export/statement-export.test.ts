@@ -2,8 +2,9 @@ import { describe, expect, it } from '@jest/globals';
 
 import { lightColors } from '@/design/tokens';
 import { buildStatement, type StatementSourceLine } from '@/domain';
+import { readZip } from '@/test/read-zip';
 
-import { utf8 } from './bytes';
+import { utf8 } from '../file-formats/bytes';
 import {
   amountDecimal,
   amountText,
@@ -11,8 +12,8 @@ import {
   buildStatementDocument,
   type StatementDocument,
 } from './document';
-import { encodeWinAnsi, isWinAnsiText, measureHelvetica } from './helvetica';
-import { buildImagePdf, type PdfOp } from './pdf';
+import { encodeWinAnsi, isWinAnsiText, measureHelvetica } from '../file-formats/helvetica';
+import { buildImagePdf, type PdfOp } from '../file-formats/pdf';
 import {
   buildStatementPdf,
   layoutStatementPdf,
@@ -20,38 +21,10 @@ import {
   statementPdfInfo,
 } from './statement-pdf';
 import { buildStatementXlsx } from './statement-xlsx';
-import { buildXlsx, columnLetters, escapeXml, excelDateSerial } from './xlsx';
-import { crc32, zipStore } from './zip';
+import { buildXlsx, columnLetters, escapeXml, excelDateSerial } from '../file-formats/xlsx';
+import { crc32, zipStore } from '../file-formats/zip';
 
 const latin1 = (bytes: Uint8Array) => Buffer.from(bytes).toString('latin1');
-
-/** Reads back a stored zip through its central directory, as any unzip tool would. */
-function unzip(bytes: Uint8Array): Map<string, string> {
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  const end = bytes.length - 22;
-  expect(view.getUint32(end, true)).toBe(0x06054b50);
-  const count = view.getUint16(end + 10, true);
-  let offset = view.getUint32(end + 16, true);
-  const files = new Map<string, string>();
-  for (let index = 0; index < count; index += 1) {
-    expect(view.getUint32(offset, true)).toBe(0x02014b50);
-    const crc = view.getUint32(offset + 16, true);
-    const size = view.getUint32(offset + 24, true);
-    const nameLength = view.getUint16(offset + 28, true);
-    const local = view.getUint32(offset + 42, true);
-    const name = Buffer.from(bytes.subarray(offset + 46, offset + 46 + nameLength)).toString(
-      'utf8',
-    );
-    expect(view.getUint32(local, true)).toBe(0x04034b50);
-    const dataStart =
-      local + 30 + view.getUint16(local + 26, true) + view.getUint16(local + 28, true);
-    const data = bytes.subarray(dataStart, dataStart + size);
-    expect(crc32(data)).toBe(crc);
-    files.set(name, Buffer.from(data).toString('utf8'));
-    offset += 46 + nameLength;
-  }
-  return files;
-}
 
 /** Checks the cross-reference table: every object must start where the table says. */
 function expectValidPdf(bytes: Uint8Array): string {
@@ -149,7 +122,7 @@ describe('zip container', () => {
       new Date('2026-11-10T12:30:40Z'),
     );
     expect(latin1(archive.subarray(0, 2))).toBe('PK');
-    const files = unzip(archive);
+    const files = readZip(archive);
     expect([...files.keys()]).toEqual(['a.txt', 'folder/ب.xml']);
     expect(files.get('folder/ب.xml')).toBe('<x>ünï</x>');
   });
@@ -168,12 +141,12 @@ describe('workbook writer', () => {
   it('refuses numbers that are not exact decimals', () => {
     const build = (value: string) =>
       buildXlsx(
-        { name: 'S', columnWidths: [10], rows: [{ cells: [{ type: 'number', value }] }] },
+        [{ name: 'S', columnWidths: [10], rows: [{ cells: [{ type: 'number', value }] }] }],
         { created: new Date('2026-01-01T00:00:00Z') },
       );
     expect(() => build('1e5')).toThrow('Invalid number');
     expect(() => build('12.5.0')).toThrow('Invalid number');
-    expect(unzip(build('1250.50')).get('xl/worksheets/sheet1.xml')).toContain('<v>1250.50</v>');
+    expect(readZip(build('1250.50')).get('xl/worksheets/sheet1.xml')).toContain('<v>1250.50</v>');
   });
 });
 
@@ -240,7 +213,7 @@ describe('statement document', () => {
 
 describe('statement workbook', () => {
   it('writes real dates and exact numbers with totals as formulas', () => {
-    const files = unzip(buildStatementXlsx(october(), lightColors));
+    const files = readZip(buildStatementXlsx(october(), lightColors));
     expect([...files.keys()]).toEqual([
       '[Content_Types].xml',
       '_rels/.rels',
@@ -290,7 +263,7 @@ describe('statement workbook', () => {
       today: '2026-11-10',
       appName: 'Pocket Ledger',
     });
-    const files = unzip(buildStatementXlsx(empty, lightColors));
+    const files = readZip(buildStatementXlsx(empty, lightColors));
     expect(files.get('xl/styles.xml')).toContain('formatCode="#,##0"');
     expect(files.get('xl/styles.xml')).not.toContain('#,##0.00');
     expect(files.get('xl/worksheets/sheet1.xml')).not.toContain('<f>');

@@ -1,8 +1,8 @@
 /**
- * The colours a statement file is drawn with, as #RRGGBB. The caller passes the
+ * The colours an exported file is drawn with, as #RRGGBB. The caller passes the
  * app's own light palette, so exported files always match the app.
  */
-export type StatementTheme = {
+export type DocumentTheme = {
   text: string;
   textMuted: string;
   textSubtle: string;

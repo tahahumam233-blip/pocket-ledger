@@ -12,6 +12,7 @@ import { createNodeSqliteDriver } from '@/test/node-sqlite-driver';
 import { createTestSqlJsDriver } from '@/test/sqljs-test-driver';
 
 import { type AppServices, createAppServices } from './index';
+import { buildLedgerCsv } from './ledger-export';
 import type { ReceiptFileStore, ReminderPlan, ReminderScheduler } from './ports';
 import { isBackupDue } from './queries';
 import { planReminder, REMINDER_IDENTIFIER, syncReminder } from './reminder';
@@ -534,9 +535,9 @@ describe.each(DRIVERS)('with %s', (_name, makeDriver) => {
       expect(primary.currencies).toEqual(['AED', 'USD']);
     });
 
-    it('exports every active line as CSV', async () => {
-      const { pocket, food } = await onboard();
-      await services.ledger.createTransaction({
+    it('exports the whole ledger with every detail, and the journal balances', async () => {
+      const { safe, pocket, bank, food, salary } = await onboard();
+      const lunch = await services.ledger.createTransaction({
         kind: 'expense',
         accountId: pocket.id,
         currency: 'USD',
@@ -545,11 +546,134 @@ describe.each(DRIVERS)('with %s', (_name, makeDriver) => {
         postedDate: '2026-10-31',
         note: 'Lunch, downtown',
       });
-      const csv = await services.exporter.transactionsCsv();
-      expect(csv.fileName).toBe('pocket-ledger-2026-10-31.csv');
-      expect(csv.rows).toBe(4);
-      expect(csv.content).toContain(
-        '2026-10-31,expense,Pocket,Food & Drink,USD,-12.34,"Lunch, downtown",no,',
+      await services.ledger.createTransaction({
+        kind: 'income',
+        accountId: bank.id,
+        currency: 'USD',
+        amountMinor: 250000,
+        categoryId: salary.id,
+        postedDate: '2026-10-25',
+        note: '',
+      });
+      await services.ledger.createTransaction({
+        kind: 'transfer',
+        fromAccountId: bank.id,
+        toAccountId: pocket.id,
+        currency: 'USD',
+        amountMinor: 10000,
+        toCurrency: 'IQD',
+        toAmountMinor: 131000,
+        postedDate: '2026-10-26',
+        note: 'Exchange office',
+      });
+      const deleted = await services.ledger.createTransaction({
+        kind: 'expense',
+        accountId: safe.id,
+        currency: 'USD',
+        amountMinor: 999,
+        categoryId: food.id,
+        postedDate: '2026-10-27',
+        note: 'Mistake',
+      });
+      await services.ledger.deleteTransaction(deleted.id);
+      const receipt = await services.receipts.capture({
+        uri: 'file:///cache/lunch.png',
+        fileName: 'lunch.png',
+      });
+      await services.receipts.attach(receipt.id, lunch.id);
+
+      const document = await services.exporter.ledgerExport('Pocket Ledger');
+      expect(document.fileBaseName).toBe('Pocket-Ledger-export-2026-10-31');
+      expect(document.currencies).toEqual(['USD', 'IQD']);
+      expect([document.firstDate, document.lastDate]).toEqual(['2026-10-01', '2026-10-31']);
+
+      // Entries are numbered oldest first and the deleted one is left out.
+      expect(document.entries.map((entry) => entry.type)).toEqual([
+        'Opening balance',
+        'Opening balance',
+        'Opening balance',
+        'Income',
+        'Exchange',
+        'Expense',
+      ]);
+      expect(document.entries.map((entry) => entry.number)).toEqual([1, 2, 3, 4, 5, 6]);
+      expect(document.entries.some((entry) => entry.note === 'Mistake')).toBe(false);
+
+      const expense = document.entries[5];
+      expect(expense).toMatchObject({
+        date: '2026-10-31',
+        description: 'Food & Drink',
+        category: 'Food & Drink',
+        account: 'Pocket',
+        currency: 'USD',
+        amountMinor: 1234,
+        cashChangeMinor: -1234,
+        expenseMinor: 1234,
+        incomeMinor: 0,
+        note: 'Lunch, downtown',
+        receipts: 1,
+      });
+      expect(document.entries[4]).toMatchObject({
+        description: 'Exchange at 1 USD = 1,310 IQD',
+        account: 'Bank',
+        toAccount: 'Pocket',
+        currency: 'USD',
+        amountMinor: 10000,
+        cashChangeMinor: -10000,
+        receivedCurrency: 'IQD',
+        receivedMinor: 131000,
+        rate: '1 USD = 1,310 IQD',
+        incomeMinor: 0,
+        expenseMinor: 0,
+      });
+
+      // Every entry balances in every currency, so the whole journal does too.
+      for (const currency of document.currencies) {
+        const lines = document.journal.filter((line) => line.currency === currency);
+        const debits = lines.reduce((sum, line) => sum + line.debitMinor, 0);
+        const credits = lines.reduce((sum, line) => sum + line.creditMinor, 0);
+        expect(debits).toBe(credits);
+        for (const entry of document.entries) {
+          const own = lines.filter((line) => line.entryId === entry.id);
+          expect(own.reduce((sum, line) => sum + line.debitMinor - line.creditMinor, 0)).toBe(0);
+        }
+      }
+      expect(
+        document.journal
+          .filter((line) => line.entryId === lunch.id)
+          .map((line) => [line.account, line.accountClass, line.debitMinor, line.creditMinor]),
+      ).toEqual([
+        ['Expense: Food & Drink', 'Expense', 1234, 0],
+        ['Pocket', 'Cash & bank', 0, 1234],
+      ]);
+
+      // Balances match the ledger and the app's own totals.
+      const home = await services.queries.home();
+      expect(document.totals.cash).toEqual({ USD: home.totals.USD, IQD: home.totals.IQD });
+      expect(document.accounts.find((account) => account.name === 'Pocket')?.balances).toEqual({
+        USD: await balance(pocket.id, 'USD'),
+        IQD: await balance(pocket.id, 'IQD'),
+      });
+      // Income and expenses match the monthly report.
+      const report = await services.queries.monthReport({ year: 2026, month: 10 }, 'USD');
+      expect(document.monthly).toEqual([
+        {
+          month: '2026-10-01',
+          currency: 'USD',
+          incomeMinor: report.summary.income,
+          expenseMinor: report.summary.expense,
+        },
+      ]);
+      expect(
+        document.categories.find((category) => category.name === 'Food & Drink'),
+      ).toMatchObject({ kind: 'Expense', entries: 1, totals: { USD: 1234 } });
+
+      const csv = buildLedgerCsv(document);
+      expect(csv).toContain(
+        '6,2026-10-31,Expense,Food & Drink,Pocket,Cash & bank,USD,,12.34,Food & Drink,,"Lunch, downtown",1,',
+      );
+      expect(csv).toContain(
+        '5,2026-10-26,Exchange,"Exchange at 1 USD = 1,310 IQD",Currency exchange,Currency exchange,IQD,,131000,',
       );
     });
 
@@ -1065,12 +1189,113 @@ describe.each(DRIVERS)('with %s', (_name, makeDriver) => {
       expect(await repos.transactions.count({ kinds: ['transfer'], debts: 'exclude' })).toBe(0);
     });
 
-    it('exports debts with their action as the type', async () => {
-      const { pocket, ali } = await withPeople();
-      await debt('lend', ali.id, pocket.id, 3000, '2026-10-02');
-      const csv = await services.exporter.transactionsCsv();
-      expect(csv.content).toContain('2026-10-02,lend,Pocket,,USD,-30.00');
-      expect(csv.content).toContain('2026-10-02,lend,Ali,,USD,30.00');
+    it('exports loans, splits and party balances in full', async () => {
+      const { pocket, bank, food, ali, sara } = await withPeople();
+      await debt('lend', ali.id, pocket.id, 3000, '2026-10-02', 'USD', 'Rent help');
+      await services.ledger.createTransaction({
+        kind: 'expense',
+        accountId: bank.id,
+        currency: 'USD',
+        amountMinor: 3000,
+        categoryId: food.id,
+        postedDate: '2026-10-12',
+        note: 'Team lunch',
+        shares: [{ personId: ali.id, amountMinor: 1800 }],
+      });
+      await services.ledger.createTransaction({
+        kind: 'expense',
+        accountId: sara.id,
+        currency: 'USD',
+        amountMinor: 700,
+        categoryId: food.id,
+        postedDate: '2026-10-13',
+        note: '',
+      });
+
+      const document = await services.exporter.ledgerExport('Pocket Ledger');
+      const entry = (description: string) => {
+        const found = document.entries.find((item) => item.description === description);
+        if (!found) throw new Error(`no entry described as ${description}`);
+        return found;
+      };
+
+      expect(entry('Loan given to Ali')).toMatchObject({
+        type: 'Loan given',
+        account: 'Pocket',
+        party: 'Ali',
+        amountMinor: 3000,
+        cashChangeMinor: -3000,
+        partyChangeMinor: 3000,
+        expenseMinor: 0,
+        note: 'Rent help',
+      });
+      // A split: the bank pays 30, 18 of it is receivable from Ali, 12 is the expense.
+      expect(entry('Food & Drink (split with Ali)')).toMatchObject({
+        account: 'Bank',
+        party: 'Ali',
+        amountMinor: 3000,
+        cashChangeMinor: -3000,
+        partyChangeMinor: 1800,
+        expenseMinor: 1200,
+      });
+      // An expense a party paid for you: no cash moves, the whole amount is an expense.
+      expect(entry('Food & Drink (paid by Sara)')).toMatchObject({
+        account: '',
+        party: 'Sara',
+        cashChangeMinor: 0,
+        partyChangeMinor: -700,
+        expenseMinor: 700,
+      });
+      expect(entry('Opening balance: Sara')).toMatchObject({
+        party: 'Sara',
+        partyChangeMinor: -5000,
+      });
+
+      const split = entry('Food & Drink (split with Ali)');
+      expect(
+        document.journal
+          .filter((line) => line.entryId === split.id)
+          .map((line) => [line.account, line.accountClass, line.debitMinor, line.creditMinor]),
+      ).toEqual([
+        ['Ali', 'Party', 1800, 0],
+        ['Expense: Food & Drink', 'Expense', 1200, 0],
+        ['Bank', 'Cash & bank', 0, 3000],
+      ]);
+
+      // Party balances: Ali owes 48.00; you owe Sara 57.00.
+      expect(document.parties.map((party) => [party.name, party.balances.USD])).toEqual([
+        ['Ali', 4800],
+        ['Sara', -5700],
+      ]);
+      expect(document.parties[1]?.dueDate).toBe('2026-11-15');
+      expect(document.totals.receivables.USD).toBe(4800);
+      expect(document.totals.payables.USD).toBe(5700);
+      const home = await services.queries.home();
+      expect(document.totals.receivables.USD).toBe(home.debts.owedToYou.USD);
+      expect(document.totals.payables.USD).toBe(home.debts.youOwe.USD);
+
+      // The trial balance agrees with the ledger and balances in each currency.
+      for (const currency of document.currencies) {
+        const rows = document.trialBalance.filter((row) => row.currency === currency);
+        expect(rows.reduce((sum, row) => sum + row.debitMinor, 0)).toBe(
+          rows.reduce((sum, row) => sum + row.creditMinor, 0),
+        );
+      }
+      const trial = (account: string) => {
+        const row = document.trialBalance.find(
+          (item) => item.account === account && item.currency === 'USD',
+        );
+        return row ? row.debitMinor - row.creditMinor : 0;
+      };
+      expect(trial('Ali')).toBe(await balance(ali.id, 'USD'));
+      expect(trial('Bank')).toBe(await balance(bank.id, 'USD'));
+      expect(trial('Expense: Food & Drink')).toBe(1900);
+
+      const csv = buildLedgerCsv(document);
+      expect(csv).toContain(',Loan given,Loan given to Ali,Ali,Party,USD,30.00,,,Ali,Rent help,0,');
+      expect(csv).toContain(
+        ',Loan given,Loan given to Ali,Pocket,Cash & bank,USD,,30.00,,Ali,Rent help,0,',
+      );
     });
 
     it('backs up and restores people and debts', async () => {

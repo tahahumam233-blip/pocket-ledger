@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 
+import { buildImagePdf, type DocumentTheme, XLSX_MIME_TYPE } from '@/application/file-formats';
 import {
-  buildImagePdf,
   buildStatementDocument,
   buildStatementPdf,
   buildStatementXlsx,
@@ -9,7 +9,6 @@ import {
   type StatementDocument,
   statementFitsBuiltInFont,
   statementPdfInfo,
-  type StatementTheme,
 } from '@/application/statement-export';
 import brand from '@/config/brand.json';
 import { lightColors } from '@/design';
@@ -21,10 +20,8 @@ import { showToast } from '@/state/toast-store';
 
 export type StatementExportFormat = 'pdf' | 'xlsx' | 'text';
 
-const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-
 /** Files are always drawn with the light palette: they are read on white paper. */
-const FILE_THEME: StatementTheme = lightColors;
+const FILE_THEME: DocumentTheme = lightColors;
 
 /**
  * The statement as a PDF. Text the PDF's built-in font can show is written as
@@ -89,7 +86,7 @@ export function useStatementExport({
               : await shareFile(
                   `${document.fileBaseName}.xlsx`,
                   buildStatementXlsx(document, FILE_THEME),
-                  XLSX_TYPE,
+                  XLSX_MIME_TYPE,
                   'Statement',
                 );
         }

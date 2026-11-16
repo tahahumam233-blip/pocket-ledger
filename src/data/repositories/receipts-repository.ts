@@ -43,6 +43,15 @@ export function createReceiptsRepository(db: SqlExecutor) {
       );
       return rows.map(mapReceipt);
     },
+    /** How many receipt photos each entry has, for entries that have any. */
+    async countsByTransaction(): Promise<Map<string, number>> {
+      const rows = await db.all<{ transaction_id: string; n: number }>(
+        `SELECT transaction_id, COUNT(*) AS n FROM receipts
+          WHERE deleted_at IS NULL AND transaction_id IS NOT NULL
+          GROUP BY transaction_id`,
+      );
+      return new Map(rows.map((row) => [row.transaction_id, row.n]));
+    },
     async countPending(): Promise<number> {
       const row = await db.get<{ n: number }>(
         'SELECT COUNT(*) AS n FROM receipts WHERE deleted_at IS NULL AND transaction_id IS NULL',

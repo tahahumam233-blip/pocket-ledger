@@ -19,7 +19,9 @@ Not started; recorded so nothing is forgotten.
 - Per-loan due dates and interest on loans.
 - Statement PDF in the native iOS build for names in scripts Helvetica lacks (Arabic, for example): the web app draws those pages, the native build currently shows "?" for such characters. Use expo-print or an embedded font.
 - Open an exported statement workbook in desktop Excel on Windows and macOS (verified with LibreOffice and openpyxl; written to the Excel file format rules).
-- A custom date range for statements, and the choice of PDF or Excel for the full ledger export in Settings.
+- A custom date range for statements and for the ledger export.
+- An in-app assistant that answers questions about the ledger. It would send ledger data to an AI service and need an API key, which changes the app's promise that nothing leaves the phone; needs the owner's decision.
+- Importing entries from a file (for example ones an assistant prepared from a bank statement), with a preview before posting.
 - Accounts and sync across devices (discussed; needs a decision on hosting and privacy).
 - Automated tests in Safari / WebKit for the web app (current end-to-end checks run in Chromium).
 - Optional encrypted backup files (password protected).

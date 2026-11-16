@@ -9,7 +9,8 @@ A private, offline spending tracker for iPhone, built with Expo and React Native
 - **Receivables and payables.** Post loans given and received and their repayments, and export a statement of account for each party as a PDF or an Excel workbook, styled like the app.
 - **A nightly reminder** at the time you choose, as a daily Calendar alert (or a notification in the optional native build).
 - **Exchange currency** within an account or between two: type the amount and the rate (or both amounts), with the last rate one tap away.
-- **Reports** by category and by month, transfers between accounts, balance adjustments, CSV export, backup and restore with photos, dark mode, and an optional Face ID lock in the native build.
+- **Export everything.** One Excel workbook (or CSV) with every entry, a balanced journal, a trial balance, balances and monthly totals: ready for your own analysis or to hand to an assistant for a full breakdown.
+- **Reports** by category and by month, transfers between accounts, balance adjustments, backup and restore with photos, dark mode, and an optional Face ID lock in the native build.
 - **Hide amounts with one tap.** The eye button on Home, Activity and Reports replaces every amount with dots when you show the app to someone.
 - **No account, no cloud, no ads.** Everything stays on the phone.
 
@@ -35,7 +36,7 @@ Every step, including the one-time publishing setup and backups, is in [docs/GET
 | Reports    | Expenses, income and net income per currency, expenses by category with a ring chart, and a six-month trend.                                                                                                                                                                            |
 | Accounts   | Balances per currency, history, and "Reconcile" to post an adjustment to the counted balance.                                                                                                                                                                                           |
 | Parties    | Receivables & payables: each debtor or creditor with a receivable or payable balance, a due date and a statement of account you can export as PDF or Excel.                                                                                                                             |
-| Settings   | Currencies, reminder time, appearance, app lock, accounts, categories, CSV export, privacy notes, erase all data.                                                                                                                                                                       |
+| Settings   | Currencies, reminder time, appearance, app lock, accounts, categories, full ledger export (Excel or CSV), privacy notes, erase all data.                                                                                                                                                |
 
 ## Development
 
