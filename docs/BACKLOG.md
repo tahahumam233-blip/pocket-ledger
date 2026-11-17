@@ -2,7 +2,9 @@
 
 Not started; recorded so nothing is forgotten.
 
-- Monthly budgets per category with progress on Home.
+- Budgets: carry an unused or overspent amount into the next month, weekly or yearly budgets, and an alert when a budget passes its pace or limit.
+- Budget history: a budget has one limit for every month, so changing it also changes how earlier months are measured.
+- The ledger CSV export has no budgets (the Excel workbook has a Budgets sheet for the month of export).
 - Recurring entries (rent, salary) with a nightly materialization step.
 - Exchange fees or commission as a separate expense line on an exchange.
 - Multiple receipts per transaction in the capture flow from the inbox (currently one pending receipt plus attachments added inside the form).

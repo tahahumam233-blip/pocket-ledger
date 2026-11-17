@@ -1,4 +1,5 @@
 import { createAccountsRepository } from './repositories/accounts-repository';
+import { createBudgetsRepository } from './repositories/budgets-repository';
 import { createCategoriesRepository } from './repositories/categories-repository';
 import { createReceiptsRepository } from './repositories/receipts-repository';
 import { createReportsRepository } from './repositories/reports-repository';
@@ -12,6 +13,7 @@ export type Repositories = {
   settings: ReturnType<typeof createSettingsRepository>;
   accounts: ReturnType<typeof createAccountsRepository>;
   categories: ReturnType<typeof createCategoriesRepository>;
+  budgets: ReturnType<typeof createBudgetsRepository>;
   transactions: ReturnType<typeof createTransactionsRepository>;
   receipts: ReturnType<typeof createReceiptsRepository>;
   reports: ReturnType<typeof createReportsRepository>;
@@ -23,6 +25,7 @@ export function createRepositories(driver: SqlDriver): Repositories {
     settings: createSettingsRepository(driver),
     accounts: createAccountsRepository(driver),
     categories: createCategoriesRepository(driver),
+    budgets: createBudgetsRepository(driver),
     transactions: createTransactionsRepository(driver),
     receipts: createReceiptsRepository(driver),
     reports: createReportsRepository(driver),

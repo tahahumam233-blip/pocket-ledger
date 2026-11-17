@@ -1,6 +1,7 @@
 export * from './database';
 export * from './mappers';
 export * from './repositories/accounts-repository';
+export * from './repositories/budgets-repository';
 export * from './repositories/categories-repository';
 export * from './repositories/receipts-repository';
 export * from './repositories/reports-repository';

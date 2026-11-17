@@ -163,7 +163,11 @@ export default function ReportsScreen() {
       </Card>
 
       <View style={styles.section}>
-        <SectionHeader title="Expenses by category" />
+        <SectionHeader
+          title="Expenses by category"
+          actionLabel="Budgets"
+          onAction={() => router.push('/budgets')}
+        />
         <Card>
           {summary && summary.expense > 0 ? (
             <View style={styles.donutLayout}>

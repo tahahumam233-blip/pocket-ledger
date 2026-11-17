@@ -37,20 +37,26 @@ Added in schema version 2: `debt_action` (`lend` | `borrow` | `collect` | `repay
 
 `id`, `file_name` (inside `Documents/receipts`), `width`, `height`, `note`, `captured_at`, `transaction_id` (nullable; null means "needs an amount"), `deleted_at`.
 
+### budgets
+
+Added in schema version 3. `id`, `category_id` (an expense category, or null for the budget that covers all expenses), `currency` (ISO code), `amount_minor` (the monthly limit, a positive integer), `created_at`, `updated_at`. A unique index on `(IFNULL(category_id, ''), currency)` allows one budget per scope and currency. Only the limit is stored: spending, what is left and the status are worked out from the ledger each time.
+
 ## Migrations
 
 | Version | Change                                                                                                                                                                                                                   |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 1       | Initial schema                                                                                                                                                                                                           |
 | 2       | People and debts: `accounts.account_class`, `accounts.note`, `accounts.due_date`, `transactions.debt_action`, index on `account_class`. Additive `ALTER TABLE` only; existing rows keep their data and get the defaults. |
+| 3       | Monthly budgets: the `budgets` table and its unique scope index. Additive; no existing table changes.                                                                                                                    |
 
-Backups made with schema version 1 restore into version 2 with the same defaults.
+Backups made with schema version 1 restore into version 2 with the same defaults. Backups made before version 3 have no `budgets` table and restore with no budgets.
 
 ## Derived values
 
 - Balance per account and currency = `SUM(amount_minor)` of lines whose transaction is not soft-deleted.
 - Reports count only `expense` and `income` transactions, grouped by currency; transfers, exchanges, opening balances and adjustments are excluded.
 - Receipts listed as "recorded" are those linked to a non-deleted transaction.
+- Budget spending for a month and currency is what Reports count as expenses in that month: `expense` entries only, netted over their lines so a split counts only your share.
 
 ## Money
 

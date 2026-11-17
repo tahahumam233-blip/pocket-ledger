@@ -304,6 +304,14 @@ export function createTransactionsRepository(db: SqlExecutor) {
         : null;
     },
 
+    /** The posting date of the earliest entry that counts, or null for an empty ledger. */
+    async firstPostedDate(): Promise<string | null> {
+      const row = await db.get<{ first: string | null }>(
+        'SELECT MIN(posted_date) AS first FROM transactions WHERE deleted_at IS NULL',
+      );
+      return row?.first ?? null;
+    },
+
     /** Permanently removes soft-deleted transactions older than the cutoff. */
     async purgeDeletedBefore(cutoff: string, executor: SqlExecutor = db): Promise<number> {
       const result = await executor.run(

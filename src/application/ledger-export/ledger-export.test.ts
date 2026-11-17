@@ -1,7 +1,7 @@
 import { describe, expect, it } from '@jest/globals';
 
 import { lightColors } from '@/design/tokens';
-import type { Account, Category, TransactionWithLines } from '@/domain';
+import type { Account, Budget, Category, TransactionWithLines } from '@/domain';
 import { readZip } from '@/test/read-zip';
 
 import { buildLedgerExport, type LedgerExportInput } from './document';
@@ -131,8 +131,82 @@ const input = (): LedgerExportInput => ({
   receiptCounts: new Map([['t-lunch', 2]]),
 });
 
+/** The fixture plus November spending and budgets, measured on 16 November. */
+const withBudgets = (): LedgerExportInput => {
+  const base = input();
+  const budget = (categoryId: string | null, currency: string, amountMinor: number): Budget => ({
+    id: `bud-${categoryId ?? 'all'}-${currency}`,
+    categoryId,
+    currency,
+    amountMinor,
+    createdAt: '2026-11-01T00:00:00.000Z',
+    updatedAt: '2026-11-01T00:00:00.000Z',
+  });
+  return {
+    ...base,
+    categories: [
+      ...base.categories,
+      { ...category('old', 'Old habit', 'expense'), archivedAt: '2026-03-01T00:00:00.000Z' },
+    ],
+    transactions: [
+      ...base.transactions,
+      // Ali owes 10.00 of this 25.00, so 15.00 is your own expense.
+      entry(
+        't-nov-food',
+        'expense',
+        '2026-11-03',
+        [
+          ['bank', 'USD', -2500, 'main'],
+          ['ali', 'USD', 1000, 'destination'],
+        ],
+        { categoryId: 'food' },
+      ),
+      entry('t-nov-rent', 'expense', '2026-11-01', [['bank', 'USD', -40000, 'main']], {
+        categoryId: 'rent',
+      }),
+      entry('t-nov-iqd', 'expense', '2026-11-04', [['pocket', 'IQD', -5000, 'main']], {
+        categoryId: 'food',
+      }),
+      entry('t-nov-gone', 'expense', '2026-11-05', [['bank', 'USD', -7700, 'main']], {
+        categoryId: 'food',
+        deletedAt: '2026-11-05T10:00:00.000Z',
+      }),
+    ],
+    budgets: [
+      budget('rent', 'USD', 40000),
+      budget('food', 'IQD', 20000),
+      budget('food', 'USD', 1000),
+      budget(null, 'USD', 100000),
+      budget('old', 'USD', 500),
+      budget('missing', 'USD', 500),
+    ],
+  };
+};
+
 describe('ledger export document', () => {
   const document = buildLedgerExport(input());
+
+  it('measures each budget against the month of export', () => {
+    const budgeted = buildLedgerExport(withBudgets());
+    expect(budgeted.budgetMonth).toBe('2026-11-01');
+    // 16 of 30 days gone: an even pace has used 16/30 of each budget.
+    expect(
+      budgeted.budgets.map((row) => [
+        row.scope,
+        row.currency,
+        row.budgetMinor,
+        row.spentMinor,
+        row.remainingMinor,
+        row.status,
+      ]),
+    ).toEqual([
+      ['All expenses', 'USD', 100000, 41500, 58500, 'On track'],
+      ['Food & Drink', 'USD', 1000, 1500, -500, 'Over budget'],
+      ['Rent', 'USD', 40000, 40000, 0, 'Ahead of pace'],
+      ['Food & Drink', 'IQD', 20000, 5000, 15000, 'On track'],
+    ]);
+    expect(document.budgets).toEqual([]);
+  });
 
   it('numbers entries oldest first and leaves deleted ones out', () => {
     expect(document.entries.map((item) => [item.number, item.type, item.description])).toEqual([
@@ -330,6 +404,22 @@ describe('ledger export files', () => {
     expect(styles).toContain('formatCode="#,##0.00"');
     expect(styles).toContain('formatCode="#,##0"');
     expect(styles).toContain('formatCode="mmm yyyy"');
+  });
+
+  it('adds a Budgets sheet only when there are budgets', () => {
+    const files = readZip(buildLedgerXlsx(buildLedgerExport(withBudgets()), lightColors));
+    const workbook = files.get('xl/workbook.xml') ?? '';
+    const names = [...workbook.matchAll(/<sheet name="([^"]+)"/g)].map((match) => match[1]);
+    expect(names.at(-1)).toBe('Budgets');
+    const strings = files.get('xl/sharedStrings.xml') ?? '';
+    for (const expected of ['Monthly budget', 'Spent in Nov 2026', 'Over budget', 'All expenses']) {
+      expect(strings).toContain(`>${expected}</t>`);
+    }
+    const sheet = files.get(`xl/worksheets/sheet${names.length}.xml`) ?? '';
+    // Food & Drink in USD on row 3: budget 10.00, spent 15.00, 5.00 over.
+    expect(sheet).toMatch(/<c r="C3" s="\d+"><v>10\.00<\/v><\/c>/);
+    expect(sheet).toMatch(/<c r="D3" s="\d+"><v>15\.00<\/v><\/c>/);
+    expect(sheet).toMatch(/<c r="E3" s="\d+"><v>-5\.00<\/v><\/c>/);
   });
 
   it('writes the journal as a CSV any tool can read', () => {

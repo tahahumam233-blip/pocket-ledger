@@ -4,6 +4,8 @@ import {
   getCurrency,
   type MinorUnits,
   minorToDecimalString,
+  monthLabel,
+  yearMonthOf,
 } from '@/domain';
 
 import type { DocumentTheme } from '../file-formats/theme';
@@ -28,6 +30,7 @@ export const LEDGER_EXPORT_NOTES = [
   'Trial balance: total debits and credits per account. Debits equal credits in each currency.',
   'Accounts, Parties, Categories: balances and totals per currency. A party balance is a receivable when they owe you and a payable when you owe them.',
   'Monthly: income, expenses and net income for each month and currency.',
+  'Budgets: each monthly budget against what was spent in the month of export, your own share of splits only. "All expenses" covers every category in that currency.',
   'Amounts in different currencies are never added together. An exchange shows what was given and what was received; its rate is the ratio of the two.',
   "A split expense counts only your own share as an expense; each party's share is a receivable from them.",
   'Deleted entries and receipt photos are not part of this file.',
@@ -408,6 +411,31 @@ export function buildLedgerXlsx(document: LedgerExportDocument, theme: DocumentT
     })),
   ];
 
+  // Budgets
+  const budgetRows: XlsxRow[] = [
+    header(
+      [
+        'Budget',
+        'Currency',
+        'Monthly budget',
+        `Spent in ${monthLabel(yearMonthOf(document.budgetMonth), { short: true })}`,
+        'Left',
+        'Status',
+      ],
+      numeric(['Monthly budget', 'Spent', 'Left']),
+    ),
+    ...document.budgets.map((row) => ({
+      cells: [
+        text(row.scope),
+        text(row.currency, muted),
+        money(row.budgetMinor, row.currency, { showZero: true }),
+        money(row.spentMinor, row.currency, { showZero: true }),
+        money(row.remainingMinor, row.currency, { showZero: true }),
+        text(row.status, muted),
+      ],
+    })),
+  ];
+
   const table = (
     name: string,
     columnWidths: number[],
@@ -438,6 +466,9 @@ export function buildLedgerXlsx(document: LedgerExportDocument, theme: DocumentT
       table('Parties', [24, 30, 13, 11, ...currencies.flatMap(() => [16, 16])], partyRows, true),
       table('Categories', [24, 10, 11, 9, ...currencies.map(() => 16)], categoryRows),
       table('Monthly', [12, 9, 16, 16, 16], monthlyRows),
+      ...(document.budgets.length > 0
+        ? [table('Budgets', [26, 9, 16, 16, 16, 15], budgetRows)]
+        : []),
     ],
     { created: new Date(`${document.exportedOn}T00:00:00Z`) },
   );

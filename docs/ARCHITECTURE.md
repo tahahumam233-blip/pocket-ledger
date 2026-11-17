@@ -36,6 +36,7 @@ Screens never run SQL or compute balances; navigation never queries data.
 - **Writes**: validate the draft in the domain, then insert the transaction and its lines inside one SQLite transaction. Transactions are serialized by a promise queue in the driver so they never overlap.
 - **Receipts**: the picked image is copied into `Documents/receipts/<id>.<ext>`; only the file name is stored. Turning a receipt into an entry creates the transaction and links the receipt.
 - **Reminder**: `planReminder` turns settings plus the pending receipt count into a plan; `syncReminder` cancels/schedules only when the plan changed. It runs after each ledger refresh and when the app returns to the foreground.
+- **Budgets**: `queries.budgetOverview` sums the month's expenses with `summarizePeriod`, the same function Reports use, and `budgetProgress` in the domain turns a limit and that spending into status, what is left and a per-day figure. Only the limit is stored.
 - **App lock**: locks at cold start and when returning from the background while enabled; unlocking uses the device biometrics or passcode.
 
 ## The iPhone web app

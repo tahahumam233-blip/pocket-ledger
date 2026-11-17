@@ -1,10 +1,16 @@
 import type { BalanceRow, EntryKind, Receipt, Repositories } from '@/data';
 import {
   type Account,
+  type Budget,
+  budgetProgress,
+  type BudgetProgress,
   buildStatement,
   type Category,
   currentYearMonth,
+  compareByAttention,
   type DebtTotals,
+  daysInMonth,
+  getCurrency,
   type CurrencyCode,
   type ExchangeQuote,
   expenseTotalsByCurrency,
@@ -18,6 +24,8 @@ import {
   type ReportLine,
   shiftYearMonth,
   type Statement,
+  suggestBudget,
+  suggestionWindow,
   summarizeDebts,
   summarizePeriod,
   todayIsoDate,
@@ -59,7 +67,83 @@ export type HomeSnapshot = {
   today: IsoDate;
   /** True once the ledger is a week old and the last backup is more than 30 days old. */
   backupDue: boolean;
+  /** Every budget with this month's progress, the overall ones first. */
+  budgets: BudgetLine[];
 };
+
+/** One budget with how this month is going against it. */
+export type BudgetLine = {
+  budget: Budget;
+  /** Null for the budget that covers all expenses. */
+  category: Category | null;
+  progress: BudgetProgress;
+};
+
+export type BudgetOverviewRow = {
+  /** Null for all expenses. */
+  category: Category | null;
+  budget: Budget | null;
+  spentMinor: MinorUnits;
+  progress: BudgetProgress | null;
+  /** A budget based on recent spending, offered when setting one. */
+  suggestionMinor: MinorUnits | null;
+};
+
+export type BudgetOverview = {
+  month: YearMonth;
+  currency: CurrencyCode;
+  today: IsoDate;
+  overall: BudgetOverviewRow;
+  /** Every active expense category, budgeted or not. */
+  categories: BudgetOverviewRow[];
+  /** What the category budgets add up to. */
+  categoryBudgetsMinor: MinorUnits;
+  /** How many days of history the suggestions are based on; 0 when there is too little. */
+  suggestionDays: number;
+};
+
+/**
+ * Pairs each budget with this month's spending: all expenses for the overall
+ * budget, the category's own share for a category budget. Most urgent first,
+ * with the overall budget for each currency ahead of its categories.
+ */
+export function budgetLines(
+  budgets: readonly Budget[],
+  categories: readonly Category[],
+  lines: readonly ReportLine[],
+  month: YearMonth,
+  today: IsoDate,
+): BudgetLine[] {
+  const byId = new Map(categories.map((category) => [category.id, category]));
+  const summaries = new Map<CurrencyCode, PeriodSummary>();
+  const summaryFor = (currency: CurrencyCode) => {
+    const known = summaries.get(currency);
+    if (known) return known;
+    const summary = summarizePeriod(lines, currency);
+    summaries.set(currency, summary);
+    return summary;
+  };
+  const result: BudgetLine[] = [];
+  for (const budget of budgets) {
+    const category = budget.categoryId ? byId.get(budget.categoryId) : null;
+    // A budget for a category that is archived or gone no longer applies.
+    if (category === undefined || category?.archivedAt) continue;
+    const summary = summaryFor(budget.currency);
+    const spent = category
+      ? (summary.expenseByCategory.find((item) => item.categoryId === category.id)?.total ?? 0)
+      : summary.expense;
+    result.push({
+      budget,
+      category,
+      progress: budgetProgress(budget.amountMinor, spent, month, today),
+    });
+  }
+  return result.sort(
+    (a, b) =>
+      Number(a.category !== null) - Number(b.category !== null) ||
+      compareByAttention(a.progress, b.progress),
+  );
+}
 
 export type MonthReport = {
   month: YearMonth;
@@ -127,6 +211,7 @@ export function createQueries(repos: Repositories, clock?: Clock) {
         pendingReceipts,
         lastAccountIds,
         lastExchange,
+        budgets,
       ] = await Promise.all([
         repos.settings.getAll(),
         repos.accounts.list({ includeArchived: true }),
@@ -137,6 +222,7 @@ export function createQueries(repos: Repositories, clock?: Clock) {
         repos.receipts.countPending(),
         repos.transactions.lastAccountByEntryKind(),
         repos.transactions.lastExchange(),
+        repos.budgets.list(),
       ]);
       const settings = parseSettings(settingsRecord);
       const accounts = allAccounts.filter(
@@ -176,6 +262,13 @@ export function createQueries(repos: Repositories, clock?: Clock) {
         pendingReceipts,
         today,
         backupDue: isBackupDue(accounts, settings.lastBackupAt, now()),
+        budgets: budgetLines(
+          budgets.filter((budget) => settings.currencies.includes(budget.currency)),
+          categories,
+          monthLines,
+          currentYearMonth(now()),
+          today,
+        ),
       };
     },
 
@@ -196,6 +289,68 @@ export function createQueries(repos: Repositories, clock?: Clock) {
     ): Promise<Statement> {
       const lines = await repos.reports.statementLines(personId, currency);
       return buildStatement(lines, currency, range);
+    },
+
+    /**
+     * Every expense category with its budget, if any, and how the month is going,
+     * plus the budget for all expenses. Suggestions come from recent spending.
+     */
+    async budgetOverview(month: YearMonth, currency: CurrencyCode): Promise<BudgetOverview> {
+      const today = todayIsoDate(now());
+      const range = monthRange(month);
+      const [categories, budgets, monthLines, firstDate] = await Promise.all([
+        repos.categories.list(),
+        repos.budgets.list({ currency }),
+        repos.reports.reportLines(range.start, range.end),
+        repos.transactions.firstPostedDate(),
+      ]);
+      const window = suggestionWindow(firstDate, today);
+      const windowLines = window ? await repos.reports.reportLines(window.from, window.to) : [];
+      const windowSummary = summarizePeriod(windowLines, currency);
+      const summary = summarizePeriod(monthLines, currency);
+      const monthDays = daysInMonth(month.year, month.month);
+      const digits = getCurrency(currency).fractionDigits;
+      const suggest = (spent: MinorUnits) =>
+        window ? suggestBudget(spent, window.days, monthDays, digits) : null;
+      const row = (category: Category | null): BudgetOverviewRow => {
+        const budget =
+          budgets.find((item) => item.categoryId === (category ? category.id : null)) ?? null;
+        const spentMinor = category
+          ? (summary.expenseByCategory.find((item) => item.categoryId === category.id)?.total ?? 0)
+          : summary.expense;
+        const recent = category
+          ? (windowSummary.expenseByCategory.find((item) => item.categoryId === category.id)
+              ?.total ?? 0)
+          : windowSummary.expense;
+        return {
+          category,
+          budget,
+          spentMinor,
+          progress: budget ? budgetProgress(budget.amountMinor, spentMinor, month, today) : null,
+          suggestionMinor: suggest(recent),
+        };
+      };
+      const expenseCategories = categories.filter(
+        (category) => category.kind === 'expense' && !category.archivedAt,
+      );
+      const categoryRows = expenseCategories.map(row);
+      return {
+        month,
+        currency,
+        today,
+        overall: row(null),
+        // Budgeted categories first, most urgent at the top; then the rest by spending.
+        categories: categoryRows.sort((a, b) => {
+          if (a.progress && b.progress) return compareByAttention(a.progress, b.progress);
+          if (a.progress || b.progress) return a.progress ? -1 : 1;
+          return b.spentMinor - a.spentMinor;
+        }),
+        categoryBudgetsMinor: categoryRows.reduce(
+          (sum, item) => sum + (item.budget?.amountMinor ?? 0),
+          0,
+        ),
+        suggestionDays: window?.days ?? 0,
+      };
     },
 
     async monthReport(month: YearMonth, currency: CurrencyCode): Promise<MonthReport> {

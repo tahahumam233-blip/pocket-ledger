@@ -96,6 +96,7 @@ export default function SettingsScreen() {
 
   const accountCount = snapshot?.accounts.length ?? 0;
   const categoryCount = snapshot?.categories.length ?? 0;
+  const budgetCount = snapshot?.budgets.length ?? 0;
   const version = Constants.expoConfig?.version ?? '1.0.0';
   const reminderTime = formatClockTime(settings.reminderHour, settings.reminderMinute);
   const reminderSubtitle = USES_CALENDAR_REMINDER
@@ -198,6 +199,12 @@ export default function SettingsScreen() {
             subtitle={`${categoryCount} active`}
             leading={<IconBadge icon="pricetags" color={theme.colors.expense} size={36} outline />}
             onPress={() => router.push('/settings/categories')}
+          />
+          <ListRow
+            title="Budgets"
+            subtitle={budgetCount > 0 ? `${budgetCount} set` : 'Monthly spending limits'}
+            leading={<IconBadge icon="pie-chart" color={theme.colors.income} size={36} outline />}
+            onPress={() => router.push('/budgets')}
             last
           />
         </Card>

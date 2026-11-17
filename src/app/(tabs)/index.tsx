@@ -17,6 +17,7 @@ import { TransactionRow } from '@/components/transaction-row';
 import { useTheme } from '@/design';
 import { formatLongDate, formatMoney } from '@/domain';
 import { useBackup } from '@/features/backup/use-backup';
+import { BudgetHomeCard } from '@/features/budgets/budget-home-card';
 import { DebtSummary } from '@/features/people/debt-summary';
 import { PersonRow } from '@/features/people/person-row';
 import { useQuickCapture } from '@/features/receipts/use-quick-capture';
@@ -264,6 +265,19 @@ export default function HomeScreen() {
             />
           ))}
         </ScrollView>
+      </View>
+
+      <View style={styles.section}>
+        <SectionHeader
+          title="Budgets"
+          actionLabel={snapshot.budgets.length > 0 ? 'See all' : undefined}
+          onAction={() => router.push('/budgets')}
+        />
+        <BudgetHomeCard
+          budgets={snapshot.budgets}
+          currencies={settings.currencies}
+          onPress={() => router.push('/budgets')}
+        />
       </View>
 
       <View style={styles.section}>

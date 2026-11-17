@@ -1,5 +1,8 @@
 import {
   type Account,
+  type Budget,
+  BUDGET_STATUS_TEXT,
+  budgetProgress,
   type Category,
   type CurrencyCode,
   DEBT_ACTION_INFO,
@@ -11,6 +14,7 @@ import {
   type MinorUnits,
   quoteFromAmounts,
   type TransactionWithLines,
+  yearMonthOf,
 } from '@/domain';
 
 /**
@@ -112,6 +116,18 @@ export type LedgerCategoryRow = {
   totals: Amounts;
 };
 
+/** A monthly budget measured against the month the file was exported in. */
+export type LedgerBudgetRow = {
+  /** "All expenses" or the category's name. */
+  scope: string;
+  currency: CurrencyCode;
+  budgetMinor: MinorUnits;
+  spentMinor: MinorUnits;
+  /** Negative when spending went over the budget. */
+  remainingMinor: MinorUnits;
+  status: string;
+};
+
 export type LedgerMonthRow = {
   /** First day of the month. */
   month: IsoDate;
@@ -140,6 +156,9 @@ export type LedgerExportDocument = {
   parties: LedgerPartyRow[];
   categories: LedgerCategoryRow[];
   monthly: LedgerMonthRow[];
+  /** First day of the month the budgets are measured in: the export month. */
+  budgetMonth: IsoDate;
+  budgets: LedgerBudgetRow[];
   totals: { cash: Amounts; receivables: Amounts; payables: Amounts };
   fileBaseName: string;
 };
@@ -155,6 +174,8 @@ export type LedgerExportInput = {
   /** Entries that count; deleted ones are left out by the caller or here. */
   transactions: readonly TransactionWithLines[];
   receiptCounts: ReadonlyMap<string, number>;
+  /** Monthly budgets; those on archived categories are left out. */
+  budgets?: readonly Budget[];
 };
 
 const TYPE_LABELS = {
@@ -238,6 +259,9 @@ export function buildLedgerExport(input: LedgerExportInput): LedgerExportDocumen
   const balances = new Map<string, Amounts>();
   const categoryStats = new Map<string, { entries: number; totals: Amounts }>();
   const months = new Map<string, LedgerMonthRow>();
+  const budgetMonth = input.exportedOn.slice(0, 7);
+  /** Expenses in the export month by `categoryId|currency`; '' is every category. */
+  const monthSpend = new Map<string, MinorUnits>();
 
   transactions.forEach((transaction, index) => {
     const number = index + 1;
@@ -309,6 +333,11 @@ export function buildLedgerExport(input: LedgerExportInput): LedgerExportDocumen
     const net = sumIn(lines, currency);
     const incomeMinor = transaction.kind === 'income' ? net : 0;
     const expenseMinor = transaction.kind === 'expense' ? -net : 0;
+    if (expenseMinor !== 0 && transaction.postedDate.startsWith(budgetMonth)) {
+      for (const key of [`|${currency}`, `${transaction.categoryId ?? ''}|${currency}`]) {
+        monthSpend.set(key, (monthSpend.get(key) ?? 0) + expenseMinor);
+      }
+    }
     const receipts = input.receiptCounts.get(transaction.id) ?? 0;
     const party = partyNames.join(', ');
 
@@ -486,6 +515,36 @@ export function buildLedgerExport(input: LedgerExportInput): LedgerExportDocumen
       a.month.localeCompare(b.month) || currencyOrder(a.currency) - currencyOrder(b.currency),
   );
 
+  const budgetMonthValue = yearMonthOf(input.exportedOn);
+  const budgets: LedgerBudgetRow[] = (input.budgets ?? [])
+    .flatMap((budget) => {
+      const category = budget.categoryId ? categoryById.get(budget.categoryId) : null;
+      if (category === undefined || category?.archivedAt) return [];
+      const spentMinor = monthSpend.get(`${budget.categoryId ?? ''}|${budget.currency}`) ?? 0;
+      const progress = budgetProgress(
+        budget.amountMinor,
+        spentMinor,
+        budgetMonthValue,
+        input.exportedOn,
+      );
+      return [
+        {
+          scope: category ? category.name : 'All expenses',
+          currency: budget.currency,
+          budgetMinor: budget.amountMinor,
+          spentMinor,
+          remainingMinor: progress.remainingMinor,
+          status: BUDGET_STATUS_TEXT[progress.status],
+        },
+      ];
+    })
+    .sort(
+      (a, b) =>
+        currencyOrder(a.currency) - currencyOrder(b.currency) ||
+        Number(a.scope !== 'All expenses') - Number(b.scope !== 'All expenses') ||
+        a.scope.localeCompare(b.scope),
+    );
+
   const preparedBy = input.preparedBy?.trim();
   return {
     appName: input.appName,
@@ -501,6 +560,8 @@ export function buildLedgerExport(input: LedgerExportInput): LedgerExportDocumen
     parties,
     categories,
     monthly,
+    budgetMonth: `${budgetMonth}-01`,
+    budgets,
     totals,
     fileBaseName: `${input.appName.trim().replace(/\s+/g, '-') || 'Ledger'}-export-${input.exportedOn}`,
   };

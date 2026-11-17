@@ -2,6 +2,15 @@
 
 ## 1.0.0 (unreleased)
 
+### Added: monthly budgets
+
+- Set a monthly budget for all expenses and, if you like, for individual categories, in each of your currencies.
+- Each budget shows what is spent of it, a bar with a mark for where an even pace would be, the status (On track, Ahead of pace, Over budget), what is left and how much that is a day for the rest of the month.
+- Home shows your budgets under Accounts, the ones that need attention first, and invites you to set one until you do. The Budgets screen opens from Home, from Settings and from Reports, and can look back at earlier months.
+- Setting a budget offers a figure based on your average spending over the last 90 days.
+- Spending is counted the same way as in Reports: only expenses, only your own share of a split, never transfers, exchanges or loans.
+- Hidden amounts hide budget figures too. Budgets are included in backups, and the Excel ledger export has a Budgets sheet for the month of export.
+
 ### Changed: export the whole ledger with every detail
 
 - Settings has one "Export ledger" button offering an Excel workbook or a CSV, replacing "Export as CSV".

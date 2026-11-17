@@ -48,6 +48,19 @@ const TABLES = [
     },
   },
   {
+    name: 'budgets',
+    columns: {
+      id: 'text',
+      category_id: 'text?',
+      currency: 'text',
+      amount_minor: 'integer',
+      created_at: 'text',
+      updated_at: 'text',
+    },
+    // Added in schema version 3; backups made before then have no budgets.
+    optional: true,
+  },
+  {
     name: 'transactions',
     columns: {
       id: 'text',
@@ -90,6 +103,8 @@ const TABLES = [
   name: string;
   columns: Record<string, ColumnTypeName>;
   defaults?: Record<string, SqlValue>;
+  /** True for a table added after the first backups, so a backup may lack it. */
+  optional?: boolean;
 }[];
 
 type ColumnTypeName = 'text' | 'text?' | 'integer' | 'integer?';
@@ -157,7 +172,11 @@ export function parseBackup(text: string): BackupFile {
     throw new BackupError('The backup is missing its data.');
   }
   for (const table of TABLES) {
-    const rows = (candidate.tables as Record<string, unknown>)[table.name];
+    const tables = candidate.tables as Record<string, unknown>;
+    if (tables[table.name] === undefined && 'optional' in table && table.optional) {
+      tables[table.name] = [];
+    }
+    const rows = tables[table.name];
     if (!Array.isArray(rows)) throw new BackupError(`The backup is missing ${table.name}.`);
     for (const row of rows) {
       if (typeof row !== 'object' || row === null) {

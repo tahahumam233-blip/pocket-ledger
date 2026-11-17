@@ -88,3 +88,16 @@ Run on a real phone after changes to screens, storage or notifications.
 - [ ] The colleague repays in cash: Receive, Repayment received, Pocket. Their balance reaches nil.
 - [ ] Activity: the Loans filter shows only loan entries; searching a party's name finds their entries.
 - [ ] Reports never count loans or repayments.
+
+## Budgets
+
+- [ ] Home shows "Set a monthly budget" under Accounts until a budget exists.
+- [ ] Budgets: "All expenses" shows what has been spent this month; set a limit with the keypad and Set budget. The card shows spent of budget, the bar with a pace mark, the status and "left · a day for N days".
+- [ ] Tap a category and give it a budget smaller than what it has cost so far: it shows Over budget and "Over by".
+- [ ] Split an expense with a colleague: only your share is added to the budget's spending. Transfers, exchanges and loans do not change it.
+- [ ] Change currency with the toggle: each currency has its own budgets and spending.
+- [ ] Earlier months show how each budget ended; next month starts from zero.
+- [ ] After a week or more of entries, the budget sheet offers "Use … (your average)".
+- [ ] Home lists All expenses first, then up to three category budgets, the one over budget first. The eye hides every budget figure.
+- [ ] Remove budget takes it off Home and the Budgets screen. Archiving the category hides its budget; restoring the category brings it back.
+- [ ] Back up, erase all data and restore: budgets return. The Excel ledger export has a Budgets sheet.

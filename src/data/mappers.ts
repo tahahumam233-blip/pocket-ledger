@@ -1,4 +1,4 @@
-import type { Account, Category, LedgerLine, Transaction } from '@/domain';
+import type { Account, Budget, Category, LedgerLine, Transaction } from '@/domain';
 
 import { fromSqlBoolean } from './sql';
 
@@ -58,6 +58,26 @@ export type ReceiptRow = {
   transaction_id: string | null;
   deleted_at: string | null;
 };
+
+export type BudgetRow = {
+  id: string;
+  category_id: string | null;
+  currency: string;
+  amount_minor: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export function mapBudget(row: BudgetRow): Budget {
+  return {
+    id: row.id,
+    categoryId: row.category_id,
+    currency: row.currency,
+    amountMinor: row.amount_minor,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
 
 export function mapAccount(row: AccountRow): Account {
   return {

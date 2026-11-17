@@ -1,5 +1,6 @@
 import type { Repositories } from '@/data';
 import {
+  type Budget,
   type Account,
   type AccountKind,
   type Category,
@@ -310,7 +311,14 @@ export function createSetupService(deps: {
     },
 
     async removeCategory(categoryId: string): Promise<'deleted' | 'archived'> {
-      if (await repos.categories.deleteIfUnused(categoryId)) return 'deleted';
+      if (!(await repos.categories.hasHistory(categoryId))) {
+        // A category with no entries goes for good, and its budgets with it.
+        await repos.driver.transaction(async (tx) => {
+          await repos.budgets.removeForCategory(categoryId, tx);
+          await repos.categories.deleteIfUnused(categoryId, tx);
+        });
+        return 'deleted';
+      }
       await repos.categories.setArchived(categoryId, nowTimestamp(now()));
       return 'archived';
     },
@@ -332,7 +340,53 @@ export function createSetupService(deps: {
         throw new Error(`${previous} already has transactions, so it cannot be replaced.`);
       }
       const currencies = settings.currencies.map((code) => (code === previous ? next : code));
+      // Budgets are amounts in one currency; they do not carry over to another.
+      await repos.budgets.removeForCurrency(previous);
       return this.updateSettings({ currencies });
+    },
+
+    /**
+     * Sets the monthly budget for one expense category, or for all expenses when
+     * the category is null, in one currency. Setting it again changes the amount.
+     */
+    async setBudget(input: {
+      categoryId: string | null;
+      currency: CurrencyCode;
+      amountMinor: number;
+    }): Promise<Budget> {
+      const settings = await this.getSettings();
+      if (!settings.currencies.includes(input.currency)) {
+        throw new Error('That currency is not set up.');
+      }
+      if (!Number.isSafeInteger(input.amountMinor) || input.amountMinor <= 0) {
+        throw new Error('Enter a budget above zero.');
+      }
+      if (input.categoryId) {
+        const category = await repos.categories.getById(input.categoryId);
+        if (!category) throw new Error('That category was not found.');
+        if (category.kind !== 'expense') throw new Error('Budgets are for expense categories.');
+        if (category.archivedAt) throw new Error(`${category.name} is archived.`);
+      }
+      const timestamp = nowTimestamp(now());
+      const existing = await repos.budgets.find(input.categoryId, input.currency);
+      if (existing) {
+        await repos.budgets.updateAmount(existing.id, input.amountMinor, timestamp);
+        return { ...existing, amountMinor: input.amountMinor, updatedAt: timestamp };
+      }
+      const budget: Budget = {
+        id: id('bud'),
+        categoryId: input.categoryId,
+        currency: input.currency,
+        amountMinor: input.amountMinor,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      };
+      await repos.budgets.insert(budget);
+      return budget;
+    },
+
+    async removeBudget(categoryId: string | null, currency: CurrencyCode): Promise<void> {
+      await repos.budgets.remove(categoryId, currency);
     },
 
     async setPrimaryCurrency(code: CurrencyCode): Promise<AppSettings> {
@@ -345,6 +399,7 @@ export function createSetupService(deps: {
     /** Wipes every table so the app returns to onboarding. Receipt files are removed by the caller. */
     async eraseAllData(): Promise<void> {
       await repos.driver.transaction(async (tx) => {
+        await tx.exec('DELETE FROM budgets');
         await tx.exec('DELETE FROM receipts');
         await tx.exec('DELETE FROM ledger_lines');
         await tx.exec('DELETE FROM transactions');

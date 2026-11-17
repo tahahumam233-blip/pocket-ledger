@@ -25,6 +25,7 @@ One person who manages cash and bank money in two currencies and wants a calm da
 - See balances per account and per currency, today's and this month's spending.
 - Browse and search entries by month, type, currency, category and account.
 - See monthly reports by category and a six-month trend.
+- Set monthly budgets for all expenses and per category, and see what is left to spend each day.
 - Reconcile an account to the amount actually counted.
 - Track receivables and payables per party: loan given, loan received, repayment received, repayment made, expenses paid by a party on your behalf, settle a balance, and a statement of account per party (debit, credit, Dr/Cr running balance, b/f and c/f) that can be exported as a PDF to send or print, as an Excel workbook to work on, or sent as plain text.
 - Receive a nightly reminder.
@@ -32,4 +33,4 @@ One person who manages cash and bank money in two currencies and wants a calm da
 
 ## Out of scope (for now)
 
-Budgets, recurring entries, multi-device sync, bank imports, exchange-rate lookups, attachments other than images, more than two currencies in the UI (the data model allows it), encrypted backup files. See BACKLOG.md.
+Recurring entries, multi-device sync, bank imports, exchange-rate lookups, attachments other than images, more than two currencies in the UI (the data model allows it), encrypted backup files. See BACKLOG.md.

@@ -115,6 +115,7 @@ function RootNavigator() {
           <Stack.Screen name="account/[id]" />
           <Stack.Screen name="account/adjust" options={{ presentation: 'modal' }} />
           <Stack.Screen name="people" />
+          <Stack.Screen name="budgets" />
           <Stack.Screen name="person/[id]" />
           <Stack.Screen name="person/edit/[id]" options={{ presentation: 'modal' }} />
           <Stack.Screen name="settings/index" />

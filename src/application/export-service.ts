@@ -16,15 +16,15 @@ export function createExportService(repos: Repositories, clock?: Clock) {
      * entries and receipt photos are left out.
      */
     async ledgerExport(appName: string): Promise<LedgerExportDocument> {
-      const [settingsRecord, accounts, categories, transactions, receiptCounts] = await Promise.all(
-        [
+      const [settingsRecord, accounts, categories, transactions, receiptCounts, budgets] =
+        await Promise.all([
           repos.settings.getAll(),
           repos.accounts.list({ includeArchived: true }),
           repos.categories.list({ includeArchived: true }),
           repos.transactions.list({ limit: EVERY_ENTRY }),
           repos.receipts.countsByTransaction(),
-        ],
-      );
+          repos.budgets.list(),
+        ]);
       const settings = parseSettings(settingsRecord);
       return buildLedgerExport({
         appName,
@@ -35,6 +35,7 @@ export function createExportService(repos: Repositories, clock?: Clock) {
         categories,
         transactions,
         receiptCounts,
+        budgets,
       });
     },
   };

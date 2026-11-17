@@ -79,6 +79,23 @@ export const MIGRATIONS: readonly Migration[] = [
       `CREATE INDEX idx_accounts_class ON accounts(account_class)`,
     ],
   },
+  {
+    version: 3,
+    name: 'budgets',
+    // A new table only; nothing existing changes.
+    statements: [
+      `CREATE TABLE budgets (
+        id TEXT PRIMARY KEY NOT NULL,
+        category_id TEXT REFERENCES categories(id),
+        currency TEXT NOT NULL CHECK (length(currency) = 3),
+        amount_minor INTEGER NOT NULL CHECK (amount_minor > 0),
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )`,
+      // One budget per category and currency, and one for all expenses per currency.
+      `CREATE UNIQUE INDEX idx_budgets_scope ON budgets(IFNULL(category_id, ''), currency)`,
+    ],
+  },
 ];
 
 export const CURRENT_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]?.version ?? 0;

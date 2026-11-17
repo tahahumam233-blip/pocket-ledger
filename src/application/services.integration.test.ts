@@ -697,6 +697,246 @@ describe.each(DRIVERS)('with %s', (_name, makeDriver) => {
     });
   });
 
+  describe('budgets', () => {
+    async function spend(
+      accountId: string,
+      categoryId: string,
+      amountMinor: number,
+      postedDate: string,
+      currency = 'USD',
+    ) {
+      return services.ledger.createTransaction({
+        kind: 'expense',
+        accountId,
+        currency,
+        amountMinor,
+        categoryId,
+        postedDate,
+        note: '',
+      });
+    }
+
+    it('sets, changes and removes budgets for all expenses and per category', async () => {
+      const { food } = await onboard();
+      const overall = await services.setup.setBudget({
+        categoryId: null,
+        currency: 'USD',
+        amountMinor: 100000,
+      });
+      const groceries = await services.setup.setBudget({
+        categoryId: food.id,
+        currency: 'USD',
+        amountMinor: 30000,
+      });
+      // Setting again changes the amount of the same budget.
+      const changed = await services.setup.setBudget({
+        categoryId: food.id,
+        currency: 'USD',
+        amountMinor: 35000,
+      });
+      expect(changed.id).toBe(groceries.id);
+      expect(
+        (await repos.budgets.list()).map((budget) => [budget.categoryId, budget.amountMinor]),
+      ).toEqual([
+        [null, 100000],
+        [food.id, 35000],
+      ]);
+      // Each currency has its own budgets.
+      await services.setup.setBudget({ categoryId: food.id, currency: 'IQD', amountMinor: 450000 });
+      expect(await repos.budgets.list({ currency: 'IQD' })).toHaveLength(1);
+
+      await services.setup.removeBudget(null, 'USD');
+      expect(await repos.budgets.find(null, 'USD')).toBeNull();
+      expect(overall.id).not.toBe(groceries.id);
+    });
+
+    it('refuses budgets that cannot apply', async () => {
+      const { food, salary } = await onboard();
+      await expect(
+        services.setup.setBudget({ categoryId: null, currency: 'EUR', amountMinor: 100 }),
+      ).rejects.toThrow('That currency is not set up.');
+      await expect(
+        services.setup.setBudget({ categoryId: null, currency: 'USD', amountMinor: 0 }),
+      ).rejects.toThrow('Enter a budget above zero.');
+      await expect(
+        services.setup.setBudget({ categoryId: food.id, currency: 'USD', amountMinor: 1.5 }),
+      ).rejects.toThrow('Enter a budget above zero.');
+      await expect(
+        services.setup.setBudget({ categoryId: salary.id, currency: 'USD', amountMinor: 100 }),
+      ).rejects.toThrow('Budgets are for expense categories.');
+      await expect(
+        services.setup.setBudget({ categoryId: 'cat_missing', currency: 'USD', amountMinor: 100 }),
+      ).rejects.toThrow('That category was not found.');
+    });
+
+    it('tracks the month against each budget, counting only your share of a split', async () => {
+      const { pocket, bank, food } = await onboard();
+      const transport = (await repos.categories.list()).find(
+        (category) => category.name === 'Transport',
+      );
+      if (!transport) throw new Error('no Transport category');
+      const ali = await services.setup.createPerson({ name: 'Ali' });
+      await services.setup.setBudget({ categoryId: null, currency: 'USD', amountMinor: 60000 });
+      await services.setup.setBudget({ categoryId: food.id, currency: 'USD', amountMinor: 31000 });
+      await services.setup.setBudget({
+        categoryId: transport.id,
+        currency: 'USD',
+        amountMinor: 3100,
+      });
+
+      await spend(pocket.id, food.id, 20000, '2026-10-05');
+      // 30.00 paid for lunch, 18.00 of it for Ali: only 12.00 is your food spending.
+      await services.ledger.createTransaction({
+        kind: 'expense',
+        accountId: bank.id,
+        currency: 'USD',
+        amountMinor: 3000,
+        categoryId: food.id,
+        postedDate: '2026-10-20',
+        note: '',
+        shares: [{ personId: ali.id, amountMinor: 1800 }],
+      });
+      await spend(pocket.id, transport.id, 4000, '2026-10-21');
+      // Transfers, other currencies and other months do not count.
+      await services.ledger.createTransaction({
+        kind: 'transfer',
+        fromAccountId: bank.id,
+        toAccountId: pocket.id,
+        currency: 'USD',
+        amountMinor: 5000,
+        postedDate: '2026-10-22',
+        note: '',
+      });
+      await spend(pocket.id, food.id, 900000, '2026-10-23', 'IQD');
+      await spend(pocket.id, food.id, 7777, '2026-09-30');
+
+      // The clock says 31 October: the last day of the month.
+      const overview = await services.queries.budgetOverview({ year: 2026, month: 10 }, 'USD');
+      expect(overview.overall.spentMinor).toBe(25200);
+      expect(overview.overall.progress).toMatchObject({
+        budgetMinor: 60000,
+        remainingMinor: 34800,
+        daysLeft: 1,
+        status: 'on_track',
+      });
+      const row = (name: string) =>
+        overview.categories.find((item) => item.category?.name === name);
+      expect(row('Food & Drink')).toMatchObject({
+        spentMinor: 21200,
+        progress: { remainingMinor: 9800, status: 'on_track' },
+      });
+      expect(row('Transport')).toMatchObject({
+        spentMinor: 4000,
+        progress: { remainingMinor: -900, status: 'over' },
+      });
+      // Budgeted categories lead, the one over budget first; unbudgeted ones follow.
+      expect(overview.categories.slice(0, 2).map((item) => item.category?.name)).toEqual([
+        'Transport',
+        'Food & Drink',
+      ]);
+      expect(
+        overview.categories
+          .slice(2)
+          .every((item) => item.budget === null && item.progress === null),
+      ).toBe(true);
+      expect(overview.categoryBudgetsMinor).toBe(34100);
+
+      // Home lists the same, the overall budget first.
+      const home = await services.queries.home();
+      expect(
+        home.budgets.map((line) => [
+          line.category?.name ?? 'All expenses',
+          line.progress.spentMinor,
+        ]),
+      ).toEqual([
+        ['All expenses', 25200],
+        ['Transport', 4000],
+        ['Food & Drink', 21200],
+      ]);
+
+      // The ledger export measures the same budgets against the month of export.
+      const exported = await services.exporter.ledgerExport('Pocket Ledger');
+      expect(exported.budgetMonth).toBe('2026-10-01');
+      expect(
+        exported.budgets.map((line) => [line.scope, line.spentMinor, line.remainingMinor]),
+      ).toEqual([
+        ['All expenses', 25200, 34800],
+        ['Food & Drink', 21200, 9800],
+        ['Transport', 4000, -900],
+      ]);
+    });
+
+    it('suggests budgets from recent spending', async () => {
+      const { pocket, food } = await onboard();
+      // Onboarding opened the ledger on 1 October; 31 days of history by the 31st.
+      await spend(pocket.id, food.id, 31000, '2026-10-10');
+      const overview = await services.queries.budgetOverview({ year: 2026, month: 11 }, 'USD');
+      expect(overview.suggestionDays).toBe(31);
+      // 310.00 over 31 days is 10.00 a day: 300.00 for a 30-day month.
+      expect(
+        overview.categories.find((item) => item.category?.id === food.id)?.suggestionMinor,
+      ).toBe(30000);
+      expect(overview.overall.suggestionMinor).toBe(30000);
+      expect(
+        overview.categories.find((item) => item.category?.name === 'Transport')?.suggestionMinor,
+      ).toBeNull();
+    });
+
+    it('keeps budgets consistent when categories, currencies or the whole ledger go', async () => {
+      const { pocket, food } = await onboard();
+      const unused = await services.setup.createCategory({
+        name: 'Hobbies',
+        kind: 'expense',
+        icon: 'brush',
+        color: '#123456',
+      });
+      await services.setup.setBudget({ categoryId: unused.id, currency: 'USD', amountMinor: 5000 });
+      await services.setup.setBudget({ categoryId: food.id, currency: 'USD', amountMinor: 5000 });
+      await spend(pocket.id, food.id, 100, '2026-10-30');
+
+      // A category with no entries is deleted along with its budget.
+      expect(await services.setup.removeCategory(unused.id)).toBe('deleted');
+      expect(await repos.budgets.find(unused.id, 'USD')).toBeNull();
+      // A category with entries is archived; its budget stays stored but no longer shows.
+      expect(await services.setup.removeCategory(food.id)).toBe('archived');
+      expect(await repos.budgets.find(food.id, 'USD')).not.toBeNull();
+      expect((await services.queries.home()).budgets).toEqual([]);
+      await expect(
+        services.setup.setBudget({ categoryId: food.id, currency: 'USD', amountMinor: 1 }),
+      ).rejects.toThrow('archived');
+
+      // Replacing an unused currency drops its budgets.
+      await services.setup.updateSettings({ currencies: ['USD', 'SAR'] });
+      await services.setup.setBudget({ categoryId: null, currency: 'SAR', amountMinor: 100000 });
+      await services.setup.replaceCurrency('SAR', 'EUR');
+      expect(await repos.budgets.list({ currency: 'SAR' })).toEqual([]);
+
+      await services.setup.eraseAllData();
+      expect(await repos.budgets.list()).toEqual([]);
+    });
+
+    it('backs up budgets and restores backups made before budgets existed', async () => {
+      const { food } = await onboard();
+      await services.setup.setBudget({ categoryId: null, currency: 'USD', amountMinor: 200000 });
+      await services.setup.setBudget({ categoryId: food.id, currency: 'USD', amountMinor: 45000 });
+      const content = (await services.backup.create()).content;
+      expect(JSON.parse(content).tables.budgets).toHaveLength(2);
+
+      await services.setup.eraseAllData();
+      await services.backup.restore(content);
+      expect((await repos.budgets.list()).map((budget) => budget.amountMinor)).toEqual([
+        200000, 45000,
+      ]);
+
+      const older = JSON.parse(content);
+      older.schemaVersion = 2;
+      delete older.tables.budgets;
+      await services.backup.restore(JSON.stringify(older));
+      expect(await repos.budgets.list()).toEqual([]);
+      expect((await services.queries.home()).totals.USD).toBe(100000);
+    });
+  });
+
   describe('backup and restore', () => {
     it('round-trips every table and photo into a fresh database', async () => {
       const { pocket, bank, food } = await onboard();
